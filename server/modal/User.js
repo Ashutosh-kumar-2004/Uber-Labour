@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
     {
@@ -43,13 +43,9 @@ const userSchema = new mongoose.Schema(
                     "Password must include uppercase, lowercase, number, and special character",
             },
         },
-
-        googleId: {
-            type: String,
-            sparse: true, // Allows multiple nulls but unique if present
-        },
     },
     { timestamps: true }
 );
 
-module.exports = mongoose.model("User", userSchema);
+const User = mongoose.model("User", userSchema);
+export default User;
