@@ -1,0 +1,47 @@
+export const TASK_CATEGORIES = [
+  {
+    id: "electronics",
+    label: "Electronics",
+    minPrice: 300,
+    subCategories: [
+      { label: "AC Repair", minPrice: 800 },
+      { label: "TV Repair", minPrice: 500 },
+      { label: "Washing Machine", minPrice: 600 },
+    ],
+  },
+  {
+    id: "plumbing",
+    label: "Plumbing",
+    minPrice: 200,
+    subCategories: [
+      { label: "Leak Fix", minPrice: 400 },
+      { label: "Pipe Installation", minPrice: 700 },
+    ],
+  },
+];
+
+export const TIME_SLOTS = [
+  { label: "8–10 AM", value: "8-10" },
+  { label: "10–12 PM", value: "10-12" },
+  { label: "12–2 PM", value: "12-2" },
+  { label: "2–4 PM", value: "2-4" },
+  { label: "4–6 PM", value: "4-6" },
+];
+
+export const TASK_FORM_DEFAULTS = {
+  taskTitle: "",
+  description: "",
+  category: "",
+  subcategory: "",
+  cost: "",
+  availabilityDate: "",
+  availabilityTimeSlots: [],
+  contactNumber: "",
+  alternateContactNumber: "",
+  images: [],
+  address: "",
+  location: { lat: null, lng: null },
+};
+
+export const PHONE_REGEX = /^[0-9]{10}$/;
+export const MAX_DESCRIPTION_LENGTH = 500;
