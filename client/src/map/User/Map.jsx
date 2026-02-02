@@ -8,8 +8,72 @@ import {
   useMapEvents,
 } from "react-leaflet";
 import L from "leaflet";
+import { GeoSearchControl, OpenStreetMapProvider } from "leaflet-geosearch";
+import "leaflet-geosearch/dist/geosearch.css";
+import {
+  MdMyLocation,
+  MdFullscreen,
+  MdFullscreenExit,
+  MdMap,
+  MdSatellite,
+} from "react-icons/md";
 
-const LocationMarker = ({ onLocationSelect, selectedLocation }) => {
+// Fix for default marker icon issues with Webpack/Vite
+import icon from "leaflet/dist/images/marker-icon.png";
+import iconShadow from "leaflet/dist/images/marker-shadow.png";
+
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
+const SearchControl = ({ onLocationSelect }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    const provider = new OpenStreetMapProvider();
+
+    const searchControl = new GeoSearchControl({
+      provider: provider,
+      style: "bar",
+      showMarker: false, // We manage our own marker
+      showPopup: false,
+      autoClose: true,
+      retainZoomLevel: false,
+      animateZoom: true,
+      keepResult: true,
+      searchLabel: "Search for address...",
+    });
+
+    map.addControl(searchControl);
+
+    const handleShowLocation = (e) => {
+      const { x, y } = e.location; // x=lng, y=lat
+      onLocationSelect(y, x);
+    };
+
+    map.on("geosearch/showlocation", handleShowLocation);
+
+    return () => {
+      map.removeControl(searchControl);
+      map.off("geosearch/showlocation", handleShowLocation);
+    };
+  }, [map, onLocationSelect]);
+
+  return null;
+};
+
+const LocationMarker = ({
+  onLocationSelect,
+  selectedLocation,
+  isFullScreen,
+  toggleFullScreen,
+  mapType,
+  toggleMapType,
+}) => {
   const [position, setPosition] = useState(null);
   const map = useMap();
 
@@ -59,8 +123,9 @@ const LocationMarker = ({ onLocationSelect, selectedLocation }) => {
         </Marker>
       )}
 
-      {/* LOCATE ME BUTTON OVERLAY */}
-      <div className="absolute top-4 right-4 z-[1000]">
+      {/* MAP CONTROLS OVERLAY */}
+      <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
+        {/* LOCATE ME BUTTON */}
         <button
           onClick={(e) => {
             e.stopPropagation(); // Prevent map click
@@ -68,22 +133,44 @@ const LocationMarker = ({ onLocationSelect, selectedLocation }) => {
             handleLocateMe();
           }}
           type="button"
-          className="bg-white p-2 rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 flex items-center gap-2 text-sm font-medium text-gray-700"
+          className="bg-white p-2 rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 w-10 h-10 transition-colors"
+          title="Locate Me"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
-          </svg>
-          Locate Me
+          <MdMyLocation size={20} />
+        </button>
+
+        {/* MAP TYPE TOGGLE (SATELLITE/NORMAL) */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            toggleMapType();
+          }}
+          type="button"
+          className="bg-white p-2 rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 w-10 h-10 transition-colors"
+          title={
+            mapType === "normal" ? "Switch to Satellite" : "Switch to Normal"
+          }
+        >
+          {mapType === "normal" ? (
+            <MdSatellite size={20} />
+          ) : (
+            <MdMap size={20} />
+          )}
+        </button>
+
+        {/* FULLSCREEN TOGGLE BUTTON */}
+        <button
+          onClick={toggleFullScreen}
+          type="button"
+          className="bg-white p-2 rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 w-10 h-10 transition-colors"
+          title={isFullScreen ? "Exit Fullscreen" : "Fullscreen"}
+        >
+          {isFullScreen ? (
+            <MdFullscreenExit size={20} />
+          ) : (
+            <MdFullscreen size={20} />
+          )}
         </button>
       </div>
     </>
@@ -91,21 +178,86 @@ const LocationMarker = ({ onLocationSelect, selectedLocation }) => {
 };
 
 const Map = ({ onLocationSelect, selectedLocation }) => {
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [mapType, setMapType] = useState("satellite"); // 'normal' | 'satellite'
+
+  const toggleFullScreen = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsFullScreen((prev) => !prev);
+  };
+
+  const toggleMapType = () => {
+    setMapType((prev) => (prev === "normal" ? "satellite" : "normal"));
+  };
+
   return (
-    <MapContainer
-      center={[28.6139, 77.209]} // fallback location
-      zoom={5}
-      style={{ height: "100%", width: "100%", borderRadius: "0.5rem" }}
+    <div
+      className={`relative transition-all duration-300 ${
+        isFullScreen
+          ? "fixed inset-0 z-[9999] w-screen h-screen bg-white"
+          : "w-full h-full rounded-2xl overflow-hidden"
+      }`}
     >
-      <TileLayer
-        attribution="&copy; OpenStreetMap contributors"
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <LocationMarker
-        onLocationSelect={onLocationSelect}
-        selectedLocation={selectedLocation}
-      />
-    </MapContainer>
+      <style>{`
+        .leaflet-control-geosearch form {
+          background: transparent;
+          padding: 0;
+          border: none;
+          box-shadow: none;
+          margin-top: 10px;
+          margin-left: 10px;
+        }
+        .leaflet-control-geosearch input.glass {
+          background-color: white !important; 
+          border-radius: 9999px !important;
+          border: none !important;
+          box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+          padding: 10px 15px;
+          height: 40px;
+          outline: none;
+          color: #111827; /* Dark text */
+        }
+        /* Ensure controls sit above fullscreen map if needed */
+        .leaflet-top.leaflet-left {
+          z-index: 1001; 
+        }
+        .leaflet-touch .leaflet-control-geosearch .results > * {
+           cursor: pointer;
+           background-color: white;
+           padding: 5px 10px;
+           border-bottom: 1px solid #f3f4f6;
+        }
+      `}</style>
+      <MapContainer
+        center={[28.6139, 77.209]} // fallback location
+        zoom={5}
+        style={{ height: "100%", width: "100%" }}
+        attributionControl={false}
+      >
+        <TileLayer
+          attribution={
+            mapType === "normal"
+              ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              : "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+          }
+          url={
+            mapType === "normal"
+              ? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              : "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          }
+        />
+        <SearchControl onLocationSelect={onLocationSelect} />
+        <LocationMarker
+          onLocationSelect={onLocationSelect}
+          selectedLocation={selectedLocation}
+          isFullScreen={isFullScreen}
+          toggleFullScreen={toggleFullScreen}
+          mapType={mapType}
+          toggleMapType={toggleMapType}
+        />
+      </MapContainer>
+    </div>
   );
 };
 
