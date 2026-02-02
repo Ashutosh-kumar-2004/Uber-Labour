@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { FiMail, FiLock } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
+import useLogin from "../../hooks/auth/useLogin";
 
 export default function LoginPage() {
   const [form, setForm] = useState({
@@ -8,21 +10,30 @@ export default function LoginPage() {
     password: "",
   });
 
-  const [error, setError] = useState("");
+  const [localError, setLocalError] = useState("");
+  const { loginUser, loading, error: loginError } = useLogin();
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+    setLocalError(""); // Clear local error on input change
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!form.email || !form.password) {
-      setError("Please fill in all fields");
+      setLocalError("Please fill in all fields");
       return;
     }
 
-    console.log("Login Data:", form);
+    try {
+      await loginUser(form);
+      navigate("/"); // Navigate to home or dashboard on success
+    } catch (err) {
+      // Error is handled by the hook and exposed via loginError
+      console.error("Login failed", err);
+    }
   };
 
   return (
@@ -38,7 +49,8 @@ export default function LoginPage() {
         <div className="bg-black/60 flex flex-col justify-center items-center text-white p-10">
           <h1 className="text-5xl font-bold mb-4">Uber Labour</h1>
           <p className="text-xl text-center max-w-md">
-            Find trusted workers or get hired for your skills — all in one place.
+            Find trusted workers or get hired for your skills — all in one
+            place.
           </p>
         </div>
       </div>
@@ -46,7 +58,9 @@ export default function LoginPage() {
       {/* Right Login Form */}
       <div className="w-full md:w-2/5 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md">
-          <h2 className="text-3xl font-bold mb-6 text-gray-800">Welcome Back</h2>
+          <h2 className="text-3xl font-bold mb-6 text-gray-800">
+            Welcome Back
+          </h2>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email */}
@@ -84,14 +98,19 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+            {(localError || loginError) && (
+              <p className="text-red-500 text-sm">{localError || loginError}</p>
+            )}
 
             {/* Login Button */}
             <button
               type="submit"
-              className="w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800 transition"
+              disabled={loading}
+              className={`w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800 transition ${
+                loading ? "opacity-70 cursor-not-allowed" : ""
+              }`}
             >
-              Login
+              {loading ? "Logging in..." : "Login"}
             </button>
 
             {/* Divider */}
@@ -113,7 +132,10 @@ export default function LoginPage() {
             {/* Signup Link */}
             <p className="text-center text-sm text-gray-600 mt-4">
               Don’t have an account?{" "}
-              <a href="/signup" className="text-blue-600 hover:underline font-medium">
+              <a
+                href="/signup"
+                className="text-blue-600 hover:underline font-medium"
+              >
                 Sign up here
               </a>
             </p>
