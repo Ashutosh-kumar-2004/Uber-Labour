@@ -6,6 +6,7 @@ import {
   MAX_DESCRIPTION_LENGTH,
   PHONE_REGEX,
 } from "../../constants/user/task.constants";
+import Map from "../../map/User/Map";
 
 export default function CreateTask() {
   const [formData, setFormData] = useState(TASK_FORM_DEFAULTS);
@@ -63,6 +64,32 @@ export default function CreateTask() {
     }));
   };
 
+  const handleLocationSelect = async (lat, lng) => {
+    // 1. Update form location state
+    setFormData((prev) => ({
+      ...prev,
+      location: { lat, lng },
+    }));
+
+    // 2. Reverse Geocode using Nominatim (OSM)
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+      );
+      const data = await response.json();
+
+      if (data && data.display_name) {
+        setFormData((prev) => ({
+          ...prev,
+          address: data.display_name,
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to fetch address:", error);
+      // Optional: don't overwrite address if fetch fails, or show toast
+    }
+  };
+
   const removeImage = (index) => {
     setFormData((prev) => ({
       ...prev,
@@ -86,13 +113,10 @@ export default function CreateTask() {
       <div className="w-[80%] h-[80vh] grid grid-cols-2 rounded-2xl overflow-hidden bg-white/80 backdrop-blur-lg shadow-xl border">
         {/* MAP */}
         <div className="relative bg-gray-200 flex flex-col items-center justify-center p-4">
-          <p className="text-gray-600 mb-2">Map will appear here</p>
-          <div className="absolute text-5xl animate-bounce">📍</div>
-          <p className="mt-8 text-sm text-gray-500 text-center">
-            User can click on map to set location <br />
-            (Coordinates: {formData.location?.lat ?? "N/A"},{" "}
-            {formData.location?.lng ?? "N/A"})
-          </p>
+          <Map
+            onLocationSelect={handleLocationSelect}
+            selectedLocation={formData.location}
+          />
         </div>
 
         {/* FORM */}
