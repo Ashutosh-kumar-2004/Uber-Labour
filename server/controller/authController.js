@@ -45,6 +45,7 @@ export const login = async (req, res) => {
       });
     }
 
+
     // Find user
     const user = await User.findOne({ email }).select("+password");
 
