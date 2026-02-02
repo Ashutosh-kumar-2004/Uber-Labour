@@ -3,35 +3,35 @@ import User from "../modal/User.js";
 import bcrypt from "bcrypt";
 
 export const signup = async (req, res) => {
-    try {
-        const { name, email, password, userType } = req.body;
-        if (!name || !email || !password || !userType) {
-            res.status(400).json({ success: false, message: "Please add all fields" });
-            return;
-        }
-        const userExists = await User.findOne({ email });
-        if (userExists) {
-            res.status(400).json({ success: false, message: "User already exists" });
-            return;
-        }
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-
-        const user = await User.create({
-            name,
-            email,
-            userType,
-            password: hashedPassword,
-        })
-        const token = generateToken(user._id);  // token generated
-
-
-        res.status(200).json({ success: true, user, token });
-    } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
-
+  try {
+    const { name, email, password, userType } = req.body;
+    if (!name || !email || !password || !userType) {
+      res
+        .status(400)
+        .json({ success: false, message: "Please add all fields" });
+      return;
     }
-}
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      res.status(400).json({ success: false, message: "User already exists" });
+      return;
+    }
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const user = await User.create({
+      name,
+      email,
+      userType,
+      password: hashedPassword,
+    });
+    const token = generateToken(user._id); // token generated
+
+    res.status(200).json({ success: true, user, token });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
 
 export const login = async (req, res) => {
   try {
@@ -45,8 +45,10 @@ export const login = async (req, res) => {
       });
     }
 
-    //  Find user
-    const user = await User.findOne({ email });
+
+    // Find user
+    const user = await User.findOne({ email }).select("+password");
+
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -56,6 +58,7 @@ export const login = async (req, res) => {
 
     // Compare password
     const isMatch = await bcrypt.compare(password, user.password);
+
     if (!isMatch) {
       return res.status(401).json({
         success: false,

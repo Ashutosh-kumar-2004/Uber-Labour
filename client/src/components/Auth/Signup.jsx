@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
+import { useNavigate } from "react-router-dom";
+import useSignup from "../../hooks/auth/useSignup";
 
 export default function SignupPage() {
   const [form, setForm] = useState({
@@ -11,6 +13,8 @@ export default function SignupPage() {
   });
 
   const [errors, setErrors] = useState({});
+  const { signupUser, loading, error: signupError } = useSignup();
+  const navigate = useNavigate();
 
   const validate = () => {
     const newErrors = {};
@@ -24,7 +28,9 @@ export default function SignupPage() {
     }
 
     if (
-      !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/.test(form.password)
+      !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/.test(
+        form.password,
+      )
     ) {
       newErrors.password =
         "Password must be 8+ chars with uppercase, lowercase, number & special character";
@@ -38,15 +44,25 @@ export default function SignupPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (validate()) {
-      console.log("Form Submitted", form);
+      try {
+        const { confirmPassword, ...signupData } = form; // Exclude confirmPassword
+        await signupUser(signupData);
+        navigate("/login"); // Navigate to login on success
+      } catch (err) {
+        console.error("Signup failed", err);
+      }
     }
   };
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+    // Clear specific error when user types
+    if (errors[e.target.name]) {
+      setErrors({ ...errors, [e.target.name]: "" });
+    }
   };
 
   return (
@@ -62,7 +78,8 @@ export default function SignupPage() {
         <div className="bg-black/50 flex flex-col justify-center items-center text-white p-10">
           <h1 className="text-5xl font-bold mb-4">Uber Labour</h1>
           <p className="text-xl text-center max-w-md">
-            Connecting skilled workers with opportunities — fast, reliable, and secure.
+            Connecting skilled workers with opportunities — fast, reliable, and
+            secure.
           </p>
         </div>
       </div>
@@ -70,7 +87,15 @@ export default function SignupPage() {
       {/* Right Form Section */}
       <div className="w-full md:w-2/5 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md">
-          <h2 className="text-3xl font-bold mb-6 text-gray-800">Create Account</h2>
+          <h2 className="text-3xl font-bold mb-6 text-gray-800">
+            Create Account
+          </h2>
+
+          {signupError && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+              <span className="block sm:inline">{signupError}</span>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Name */}
@@ -83,7 +108,9 @@ export default function SignupPage() {
                 onChange={handleChange}
                 className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-black"
               />
-              {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
+              {errors.name && (
+                <p className="text-red-500 text-sm">{errors.name}</p>
+              )}
             </div>
 
             {/* Email */}
@@ -96,12 +123,14 @@ export default function SignupPage() {
                 onChange={handleChange}
                 className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-black"
               />
-              {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
+              {errors.email && (
+                <p className="text-red-500 text-sm">{errors.email}</p>
+              )}
             </div>
 
             {/* User Type */}
             <div className="flex gap-6">
-                Account Type: 
+              Account Type:
               <label className="flex items-center gap-2">
                 <input
                   type="radio"
@@ -134,7 +163,9 @@ export default function SignupPage() {
                 onChange={handleChange}
                 className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-black"
               />
-              {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
+              {errors.password && (
+                <p className="text-red-500 text-sm">{errors.password}</p>
+              )}
             </div>
 
             {/* Confirm Password */}
@@ -155,9 +186,12 @@ export default function SignupPage() {
             {/* Submit */}
             <button
               type="submit"
-              className="w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800 transition"
+              disabled={loading}
+              className={`w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800 transition ${
+                loading ? "opacity-70 cursor-not-allowed" : ""
+              }`}
             >
-              Sign Up
+              {loading ? "Signing up..." : "Sign Up"}
             </button>
 
             {/* Divider */}
@@ -179,7 +213,10 @@ export default function SignupPage() {
             {/* Already have account */}
             <p className="text-center text-sm text-gray-600 mt-4">
               Already have an account?{" "}
-              <a href="/login" className="text-blue-600 hover:underline font-medium">
+              <a
+                href="/login"
+                className="text-blue-600 hover:underline font-medium"
+              >
                 Login here
               </a>
             </p>
