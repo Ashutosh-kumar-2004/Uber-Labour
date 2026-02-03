@@ -2,7 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import SignupPage from "../components/Auth/Signup";
 import LoginPage from "../components/Auth/LoginPage";
 import ForgotPassword from "../components/Auth/ForgotPassword";
-import User_Dashboard from "../components/Auth/User_Dashboard";
+import User_Dashboard from "../components/User/User_Dashboard";
 import CreateTask from "../components/User/CreateTask";
 const AppRoutes = () => {
   return (

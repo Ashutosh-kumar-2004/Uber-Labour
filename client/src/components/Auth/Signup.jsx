@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { useNavigate } from "react-router-dom";
 import useSignup from "../../hooks/auth/useSignup";
+import ImageSection from "./ImageSection";
 
 export default function SignupPage() {
   const [form, setForm] = useState({
@@ -68,22 +69,7 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left Image Section */}
-      <div
-        className="hidden md:flex w-3/5 bg-cover bg-center"
-        style={{
-          backgroundImage:
-            "url('https://images.unsplash.com/photo-1521791136064-7986c2920216')",
-        }}
-      >
-        <div className="bg-black/50 flex flex-col justify-center items-center text-white p-10">
-          <h1 className="text-5xl font-bold mb-4">Uber Labour</h1>
-          <p className="text-xl text-center max-w-md">
-            Connecting skilled workers with opportunities — fast, reliable, and
-            secure.
-          </p>
-        </div>
-      </div>
-
+      <ImageSection />
       {/* Right Form Section */}
       <div className="w-full md:w-2/5 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md">

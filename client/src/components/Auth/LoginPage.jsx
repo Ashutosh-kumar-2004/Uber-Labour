@@ -3,6 +3,7 @@ import { FcGoogle } from "react-icons/fc";
 import { FiMail, FiLock } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import useLogin from "../../hooks/auth/useLogin";
+import ImageSection from "./ImageSection";
 
 export default function LoginPage() {
   const [form, setForm] = useState({
@@ -47,21 +48,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left Image Section */}
-      <div
-        className="hidden md:flex w-3/5 bg-cover bg-center"
-        style={{
-          backgroundImage:
-            "url('https://images.unsplash.com/photo-1504384308090-c894fdcc538d')",
-        }}
-      >
-        <div className="bg-black/60 flex flex-col justify-center items-center text-white p-10">
-          <h1 className="text-5xl font-bold mb-4">Uber Labour</h1>
-          <p className="text-xl text-center max-w-md">
-            Find trusted workers or get hired for your skills — all in one
-            place.
-          </p>
-        </div>
-      </div>
+      <ImageSection />
+      
 
       {/* Right Login Form */}
       <div className="w-full md:w-2/5 flex items-center justify-center p-8 bg-white">
