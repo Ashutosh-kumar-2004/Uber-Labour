@@ -28,8 +28,16 @@ export default function LoginPage() {
     }
 
     try {
-      await loginUser(form);
-      navigate("/"); // Navigate to home or dashboard on success
+      const response = await loginUser(form);
+      const userType = response.user.userType;
+
+      if (userType === "admin") {
+        navigate("/admin");
+      } else if (userType === "worker") {
+        navigate("/worker");
+      } else {
+        navigate("/user");
+      }
     } catch (err) {
       // Error is handled by the hook and exposed via loginError
       console.error("Login failed", err);
