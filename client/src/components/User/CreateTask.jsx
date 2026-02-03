@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { ChevronDown, X, Camera } from "lucide-react";
 import {
   TIME_SLOTS,
   TASK_CATEGORIES,
@@ -98,6 +99,11 @@ export default function CreateTask() {
     setPreviewImage(null);
   };
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    console.log("Task Data:", formData);
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
       <style>{`
@@ -112,7 +118,7 @@ export default function CreateTask() {
       {/* MAIN CONTAINER */}
       <div className="w-[80%] h-[80vh] grid grid-cols-2 rounded-2xl overflow-hidden bg-white/80 backdrop-blur-lg shadow-xl border">
         {/* MAP */}
-        <div className="relative bg-gray-200 flex flex-col items-center justify-center p-4">
+        <div className="relative bg-gray-200 flex flex-col items-center justify-center">
           <Map
             onLocationSelect={handleLocationSelect}
             selectedLocation={formData.location}
@@ -120,7 +126,10 @@ export default function CreateTask() {
         </div>
 
         {/* FORM */}
-        <form className="p-6 overflow-y-auto space-y-4 no-scrollbar">
+        <form
+          onSubmit={handleSubmit}
+          className="p-6 overflow-y-auto space-y-4 no-scrollbar"
+        >
           <h1 className="text-2xl font-semibold text-gray-900">Create Task</h1>
 
           {/* CATEGORY & SUBCATEGORY ROW */}
@@ -144,19 +153,7 @@ export default function CreateTask() {
                   ))}
                 </select>
                 <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-gray-500">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                  </svg>
+                  <ChevronDown size={16} />
                 </div>
               </div>
             </div>
@@ -181,19 +178,7 @@ export default function CreateTask() {
                   ))}
                 </select>
                 <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-gray-500">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                  </svg>
+                  <ChevronDown size={16} />
                 </div>
               </div>
             </div>
@@ -291,18 +276,30 @@ export default function CreateTask() {
             </div>
           </div>
 
-          {/* TIME SLOTS */}
+          {/* AVAILABILITY (DATE & TIME) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Availability
             </label>
+
+            <div className="mb-3">
+              <input
+                type="date"
+                name="availabilityDate"
+                value={formData.availabilityDate}
+                onChange={handleChange}
+                className="w-full rounded-lg border px-4 py-2"
+                required
+              />
+            </div>
+
             <div className="flex flex-wrap gap-2">
               {TIME_SLOTS.map((slot) => (
                 <button
                   key={slot.value}
                   type="button"
                   onClick={() => toggleSlot(slot.value)}
-                  className={`px-4 py-2 rounded-full border text-sm ${
+                  className={`px-4 py-2 rounded-full border text-sm cursor-pointer ${
                     formData.availabilityTimeSlots.includes(slot.value)
                       ? "bg-black text-white"
                       : "bg-gray-100"
@@ -340,22 +337,9 @@ export default function CreateTask() {
                       e.stopPropagation();
                       removeImage(i);
                     }}
-                    className="absolute top-1 right-1 bg-black/50 hover:bg-red-500 text-white rounded-full p-1 backdrop-blur-sm transition-colors"
+                    className="absolute top-1 right-1 bg-black/50 hover:bg-red-500 text-white rounded-full p-1 backdrop-blur-sm transition-colors cursor-pointer"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
+                    <X size={12} />
                   </button>
                 </div>
               ))}
@@ -372,21 +356,7 @@ export default function CreateTask() {
                     disabled={formData.images.length >= 3}
                   />
                   <div className="bg-gray-100 p-2 rounded-full mb-1 group-hover:bg-gray-200 transition-colors">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="text-gray-500"
-                    >
-                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                      <circle cx="12" cy="13" r="4"></circle>
-                    </svg>
+                    <Camera size={20} className="text-gray-500" />
                   </div>
                   <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">
                     Add Photo
@@ -396,7 +366,7 @@ export default function CreateTask() {
             </div>
           </div>
 
-          <button className="w-full py-3 rounded-xl bg-black text-white font-medium">
+          <button className="w-full py-3 rounded-xl bg-black text-white font-medium cursor-pointer">
             Post Task
           </button>
         </form>
@@ -413,13 +383,13 @@ export default function CreateTask() {
             />
             <button
               onClick={() => removeImage(previewImage.index)}
-              className="mt-4 w-full py-2 bg-red-600 text-white rounded-lg"
+              className="mt-4 w-full py-2 bg-red-600 text-white rounded-lg cursor-pointer"
             >
               Remove Image
             </button>
             <button
               onClick={() => setPreviewImage(null)}
-              className="absolute top-2 right-2 text-xl"
+              className="absolute top-2 right-2 text-xl cursor-pointer"
             >
               ✕
             </button>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -76,6 +76,15 @@ const LocationMarker = ({
 }) => {
   const [position, setPosition] = useState(null);
   const map = useMap();
+  const controlsRef = useRef(null);
+
+  // Disable click propagation on controls to prevent map click events
+  useEffect(() => {
+    if (controlsRef.current) {
+      L.DomEvent.disableClickPropagation(controlsRef.current);
+      L.DomEvent.disableScrollPropagation(controlsRef.current);
+    }
+  }, []);
 
   // Handle map clicks to set location manually
   useMapEvents({
@@ -124,16 +133,17 @@ const LocationMarker = ({
       )}
 
       {/* MAP CONTROLS OVERLAY */}
-      <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
+      <div
+        ref={controlsRef}
+        className="absolute top-4 right-4 z-[1000] flex flex-col gap-2"
+      >
         {/* LOCATE ME BUTTON */}
         <button
           onClick={(e) => {
-            e.stopPropagation(); // Prevent map click
-            e.preventDefault();
             handleLocateMe();
           }}
           type="button"
-          className="bg-white p-2 rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 w-10 h-10 transition-colors"
+          className="bg-white p-2 rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 w-10 h-10 transition-colors cursor-pointer"
           title="Locate Me"
         >
           <MdMyLocation size={20} />
@@ -142,12 +152,10 @@ const LocationMarker = ({
         {/* MAP TYPE TOGGLE (SATELLITE/NORMAL) */}
         <button
           onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
             toggleMapType();
           }}
           type="button"
-          className="bg-white p-2 rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 w-10 h-10 transition-colors"
+          className="bg-white p-2 rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 w-10 h-10 transition-colors cursor-pointer"
           title={
             mapType === "normal" ? "Switch to Satellite" : "Switch to Normal"
           }
@@ -163,7 +171,7 @@ const LocationMarker = ({
         <button
           onClick={toggleFullScreen}
           type="button"
-          className="bg-white p-2 rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 w-10 h-10 transition-colors"
+          className="bg-white p-2 rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 w-10 h-10 transition-colors cursor-pointer"
           title={isFullScreen ? "Exit Fullscreen" : "Fullscreen"}
         >
           {isFullScreen ? (
