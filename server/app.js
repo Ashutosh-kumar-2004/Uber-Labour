@@ -5,6 +5,7 @@ import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import connectDB from "./config/db.js";
 import { protect } from "./middleware/authMiddleware.js";
+import workerRoutes from "./routes/workerRoutes.js";
 
 const app = express();
 connectDB();
@@ -18,9 +19,10 @@ app.use(
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
-/* user routes*/
+
 app.use(protect);
 app.use("/api/user", userRoutes);
+app.use("/api/worker", workerRoutes);
 
 app.listen(5000, () => {
   console.log("Server running");
