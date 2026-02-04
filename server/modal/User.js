@@ -45,7 +45,7 @@ const userSchema = new mongoose.Schema(
           "Password must include uppercase, lowercase, number, and special character",
       },
     },
-    contact: {
+    contactNumber: {
       type: String,
       required: [true, "Contact is required"],
       unique: true,

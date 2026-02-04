@@ -5,7 +5,7 @@ import fs from "fs";
 
 export const verifyWorker = async (req, res) => {
   try {
-    const { adharCardNumber, address } = req.body;
+    const { adharCardNumber, address, contactNumber } = req.body;
     const userId = req.user._id;
 
     if (!req.file) {
@@ -22,8 +22,8 @@ export const verifyWorker = async (req, res) => {
 
     const idCardImage = result.secure_url;
 
-    // Update User with Address
-    await User.findByIdAndUpdate(userId, { address });
+    // Update User with Address and Contact Number
+    await User.findByIdAndUpdate(userId, { address, contactNumber });
 
     // Create or Update Worker Record
     // Check if worker record already exists for this user
