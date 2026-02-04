@@ -18,8 +18,8 @@ const AppRoutes = () => {
       <Route path="/user/hire" element={<CreateTask />} />
 
       {/* Labor routes */}
-      <Route path="/labor" element={<Registration/>}/>
-      <Route path="/labor_dashboard" element={<WorkerDashboard/>}/>
+      <Route path="/worker" element={<Registration/>}/>
+      <Route path="/worker/dashboard" element={<WorkerDashboard/>}/>
       {/* Default Route */}
       <Route path="*" element={<LoginPage />} />
     </Routes>
