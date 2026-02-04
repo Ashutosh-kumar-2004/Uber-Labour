@@ -55,7 +55,7 @@ const useCreateWork = () => {
       // POST request to backend
       // Assuming baseURL is /api, so path is /user/create
       const response = await axiosInstance.post(
-        "/user/create",
+        "/api/user/create",
         formData,
         config,
       );

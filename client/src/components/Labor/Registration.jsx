@@ -38,6 +38,11 @@ const Registration = () => {
               </div>
 
               <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest mb-2">Contact Number</label>
+                <input type="number" placeholder="e.g. 1234567890" className="w-full p-4 border-2 border-black rounded-xl font-bold" max={10}/>
+              </div>
+
+              <div>
                 <label className="block text-[10px] font-bold uppercase tracking-widest mb-2">Years of Experience</label>
                 <input type="number" placeholder="e.g. 5" className="w-full p-4 border-2 border-black rounded-xl font-bold" />
               </div>

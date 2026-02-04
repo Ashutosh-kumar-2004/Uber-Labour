@@ -9,7 +9,7 @@ const useSignup = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axiosInstance.post("/auth/signup", userData);
+      const response = await axiosInstance.post("/api/auth/signup", userData);
       return response.data;
     } catch (err) {
       setError(err.response?.data?.message || "Signup failed");

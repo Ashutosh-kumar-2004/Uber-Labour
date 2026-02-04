@@ -43,6 +43,17 @@ const userSchema = new mongoose.Schema(
                     "Password must include uppercase, lowercase, number, and special character",
             },
         },
+        contact :{
+            type: String,
+            required: [true, "Contact is required"],
+            unique: true,
+            trim: true,
+            match: [/^\d{10}$/, "Please enter a valid 10-digit contact number"],
+        },
+        isVerified: {
+            type: Boolean,
+            default: false,
+        },
     },
     { timestamps: true }
 );

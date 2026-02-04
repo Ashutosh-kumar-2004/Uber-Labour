@@ -20,7 +20,7 @@ const useFetchMyWorks = () => {
             Authorization: `Bearer ${token}`,
           },
         };
-        const response = await axiosInstance.get("/user/my-works", config);
+        const response = await axiosInstance.get("/api/user/my-works", config);
         dispatch(fetchWorksSuccess(response.data.tasks));
       } catch (err) {
         const message =

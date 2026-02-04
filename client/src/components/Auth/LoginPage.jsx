@@ -34,9 +34,13 @@ export default function LoginPage() {
 
       if (userType === "admin") {
         navigate("/admin");
-      } else if (userType === "worker") {
+      } else if (userType === "worker" && response.user.isVerified === false) {
         navigate("/worker");
-      } else {
+      } 
+      else if (userType === "worker" && response.user.isVerified === true) {
+        navigate("/worker/dashboard");
+      }
+      else {
         navigate("/user");
       }
     } catch (err) {

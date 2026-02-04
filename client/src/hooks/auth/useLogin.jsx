@@ -15,7 +15,7 @@ const useLogin = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axiosInstance.post("/auth/login", credentials);
+      const response = await axiosInstance.post("/api/auth/login", credentials);
       login(response.data);
       dispatch(setUser(response.data));
       return response.data;
