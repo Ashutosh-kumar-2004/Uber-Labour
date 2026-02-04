@@ -1,18 +1,23 @@
 import React, { createContext, useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { setUser, clearUser } from "../../redux/slices/userSlice.jsx";
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUserIterator] = useState(null);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const login = (userData) => {
-    setUser(userData);
+    setUserIterator(userData);
+    dispatch(setUser(userData));
   };
 
   const logout = () => {
-    setUser(null);
+    setUserIterator(null);
+    dispatch(clearUser());
     navigate("/login");
   };
 

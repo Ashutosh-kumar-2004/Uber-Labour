@@ -50,11 +50,11 @@ const Dashboard = () => {
         <div className="flex items-center gap-3">
           <button className="hidden sm:flex items-center gap-2 px-4 py-2 border border-gray-200 hover:bg-gray-50 text-xs font-bold rounded-md transition-all uppercase tracking-wider">
             <MapPin size={14} />
-            Your Location
+            Locate Me
           </button>
           <button className="flex items-center gap-2 px-4 py-2 bg-black hover:bg-zinc-800 text-white text-xs font-bold rounded-md transition-all shadow-md uppercase tracking-wider">
             <Plus size={14} />
-            Create a Task
+            New Work
           </button>
           <div className="w-9 h-9 border-2 border-black rounded-full flex items-center justify-center ml-2 overflow-hidden cursor-pointer">
              <User size={18} />
