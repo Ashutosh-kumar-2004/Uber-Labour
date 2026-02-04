@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import Category from "./CategorySchema.modal.js";
-
+import { Category } from "./CategorySchema.modal.js";
+// ...
 const taskSchema = new mongoose.Schema(
   {
     creatorId: {
@@ -127,7 +127,6 @@ const taskSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-
 taskSchema.index({ "location.geo": "2dsphere" });
 
 // dynamic price validation
@@ -149,4 +148,5 @@ taskSchema.pre("validate", async function (next) {
   next();
 });
 
-export const Task = mongoose.model("Task", taskSchema);
+const Task = mongoose.model("Task", taskSchema);
+export default Task;
