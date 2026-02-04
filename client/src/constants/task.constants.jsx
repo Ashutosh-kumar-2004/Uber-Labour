@@ -45,3 +45,23 @@ export const TASK_FORM_DEFAULTS = {
 
 export const PHONE_REGEX = /^[0-9]{10}$/;
 export const MAX_DESCRIPTION_LENGTH = 500;
+
+export const getGeolocation = () => {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Geolocation is not supported by your browser"));
+    } else {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (error) => {
+          reject(error);
+        },
+      );
+    }
+  });
+};
