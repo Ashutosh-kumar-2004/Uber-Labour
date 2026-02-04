@@ -4,6 +4,8 @@ import LoginPage from "../components/Auth/LoginPage";
 import ForgotPassword from "../components/Auth/ForgotPassword";
 import User_Dashboard from "../components/User/User_Dashboard";
 import CreateTask from "../components/User/CreateTask";
+import Registration from "../components/Labor/Registration";
+import WorkerDashboard from "../components/Labor/WorkerDashboard";
 const AppRoutes = () => {
   return (
     <Routes>
@@ -15,6 +17,9 @@ const AppRoutes = () => {
       <Route path="/user" element={<User_Dashboard />} />
       <Route path="/user/hire" element={<CreateTask />} />
 
+      {/* Labor routes */}
+      <Route path="/labor" element={<Registration/>}/>
+      <Route path="/labor_dashboard" element={<WorkerDashboard/>}/>
       {/* Default Route */}
       <Route path="*" element={<LoginPage />} />
     </Routes>
