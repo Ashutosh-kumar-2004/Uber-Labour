@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { Category } from "./CategorySchema.modal.js";
 // ...
 const taskSchema = new mongoose.Schema(
   {
@@ -106,8 +105,7 @@ const taskSchema = new mongoose.Schema(
 
     /* Task category */
     category: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Category",
+      type: String,
       required: true,
     },
 
@@ -128,25 +126,6 @@ const taskSchema = new mongoose.Schema(
 );
 
 taskSchema.index({ "location.geo": "2dsphere" });
-
-// dynamic price validation
-taskSchema.pre("validate", async function (next) {
-  if (!this.category || this.cost == null) return next();
-
-  const category = await Category.findById(this.category);
-
-  if (!category) {
-    return next(new Error("Invalid category selected"));
-  }
-
-  if (this.cost < category.minPrice) {
-    return next(
-      new Error(`Minimum price for ${category.name} is ${category.minPrice}`),
-    );
-  }
-
-  next();
-});
 
 const Task = mongoose.model("Task", taskSchema);
 export default Task;

@@ -9,6 +9,7 @@ import {
   PHONE_REGEX,
 } from "../../constants/task.constants";
 import Map from "../../map/User/Map";
+import useCreateWork from "../../hooks/user/useCreateWork.jsx";
 
 export default function CreateTask({ onClose }) {
   const [formData, setFormData] = useState(TASK_FORM_DEFAULTS);
@@ -136,9 +137,32 @@ export default function CreateTask({ onClose }) {
     setPreviewImage(null);
   };
 
-  const handleSubmit = (e) => {
+  const { createWork, loading, error, success } = useCreateWork();
+  // state.user.user contains the login response { user, token }
+  const fullUser = useSelector((state) => state.user.user);
+  const token = fullUser?.token;
+
+  useEffect(() => {
+    if (success) {
+      if (onClose) onClose();
+      // Optional: reset form or show success message globally if needed
+      // alert("Work created successfully!");
+    }
+  }, [success, onClose]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Task Data:", formData);
+    if (!token) {
+      alert("You must be logged in to create a task.");
+      return;
+    }
+
+    try {
+      await createWork(formData, token);
+    } catch (err) {
+      // Error handled in hook and error state
+      console.error(err);
+    }
   };
 
   return (
@@ -475,9 +499,15 @@ export default function CreateTask({ onClose }) {
                 </div>
               </div>
 
-              <button className="w-full py-3 rounded-xl bg-gradient-to-r from-gray-900 to-gray-700 text-white font-medium cursor-pointer hover:shadow-lg hover:from-gray-800 hover:to-gray-600 transition-all duration-300 shadow-md backdrop-blur-sm mb-3">
-                Create Work
+              <button
+                disabled={loading}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-gray-900 to-gray-700 text-white font-medium cursor-pointer hover:shadow-lg hover:from-gray-800 hover:to-gray-600 transition-all duration-300 shadow-md backdrop-blur-sm mb-3 disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {loading ? "Creating..." : "Create Work"}
               </button>
+              {error && (
+                <p className="text-red-500 text-sm text-center">{error}</p>
+              )}
             </form>
           </div>
         </div>

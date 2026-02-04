@@ -1,10 +1,11 @@
 import cloudinary from "../config/cloudinary.js";
 import Task from "../modal/user/Task.model.js";
+import fs from "fs";
 
 // Create a new task
 export const createWork = async (req, res) => {
   try {
-    const {
+    let {
       taskTitle,
       description,
       category,
@@ -15,8 +16,13 @@ export const createWork = async (req, res) => {
       contactNumber,
       alternateContactNumber,
       address,
-      location, // { lat, lng }
+      location, // { lat, lng } or JSON string
     } = req.body;
+
+    // Parse location if it's a string (from FormData)
+    if (typeof location === "string") {
+      location = JSON.parse(location);
+    }
 
     // Validation: ensure location
     if (!location || !location.lat || !location.lng) {
@@ -31,12 +37,14 @@ export const createWork = async (req, res) => {
           folder: "tasks",
         });
         imageUrls.push(result.secure_url);
+        // Clean up temp file
+        fs.unlinkSync(file.path);
       }
     }
 
     // Create the task
     const task = new Task({
-      creatorId: req.user._id, // assuming protect middleware adds req.user
+      creatorId: req.user._id, 
       taskTitle,
       description,
       category,
@@ -64,5 +72,18 @@ export const createWork = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: error.message || "Server error" });
+  }
+};
+
+// Get all works created by the logged-in user
+export const getMyWorks = async (req, res) => {
+  try {
+    const tasks = await Task.find({ creatorId: req.user._id }).sort({
+      createdAt: -1,
+    });
+    res.status(200).json({ success: true, tasks });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error" });
   }
 };
