@@ -41,16 +41,13 @@ const Registration = () => {
       return;
     }
 
-    const data = new FormData();
-    data.append("primarySkill", formData.primarySkill);
-    data.append("contactNumber", formData.contactNumber);
-    data.append("experience", formData.experience);
-    data.append("adharCardNumber", formData.adharCardNumber);
-    data.append("address", formData.address);
-    data.append("file", file);
+    const payload = {
+      ...formData,
+      file,
+    };
 
     try {
-      await registerWorker(data);
+      await registerWorker(payload);
       setStep(3);
     } catch (err) {
       console.error(err);
