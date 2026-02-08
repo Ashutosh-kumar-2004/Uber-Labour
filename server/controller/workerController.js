@@ -79,40 +79,6 @@ export const verifyWorker = async (req, res) => {
   }
 };
 
-export const deleteWorker = async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    // Find worker by ID (or userId if that's how you want to expose it, but ID is standard)
-    const worker = await Worker.findById(id);
-
-    if (!worker) {
-      return res.status(404).json({ message: "Worker profile not found" });
-    }
-
-    // Ensure only the user themselves or an admin can delete (assuming user check)
-    // worker.userId is an objectId, req.user._id is string or objectId
-    if (worker.userId.toString() !== req.user._id.toString()) {
-         return res.status(403).json({ message: "Not authorized" });
-    }
-
-    // Delete ID image from Cloudinary
-    if (worker.idCardImage) {
-      const publicId = getPublicIdFromUrl(worker.idCardImage);
-      if (publicId) {
-        await cloudinary.uploader.destroy(publicId);
-      }
-    }
-
-    await worker.deleteOne();
-
-    res.status(200).json({ message: "Worker profile deleted successfully" });
-  } catch (error) {
-    console.error("Error deleting worker:", error);
-    res.status(500).json({ message: "Server Error" });
-  }
-};
-
 export const acceptTask = async (req, res) => {
   try {
     const { taskId } = req.params;
@@ -288,7 +254,6 @@ export const rejectTask = async (req, res) => {
   }
 };
 
-
 export const completeTask = async (req, res) => {
   try {
     const { taskId } = req.params;
@@ -369,4 +334,72 @@ export const completeTask = async (req, res) => {
   }
 };
 
+export const setWorkerAvailability = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { isOnline } = req.body; // true or false
 
+    /* =========================
+       ROLE CHECK
+    ========================= */
+    if (req.user.userType !== "worker") {
+      return res.status(403).json({
+        success: false,
+        message: "Only workers can update availability"
+      });
+    }
+
+    /* =========================
+       WORKER CHECK
+    ========================= */
+    const worker = await Worker.findOne({
+      userId,
+      status: "verified"
+    });
+
+    if (!worker) {
+      return res.status(404).json({
+        success: false,
+        message: "Verified worker profile not found"
+      });
+    }
+
+    /* =========================
+       PREVENT OFFLINE IF ACTIVE TASK
+    ========================= */
+    if (isOnline === false) {
+      const activeTask = await Task.findOne({
+        assignedWorkerId: worker._id,
+        status: { $in: ["assigned", "inProgress"] }
+      });
+
+      if (activeTask) {
+        return res.status(409).json({
+          success: false,
+          message: "Cannot go offline while having an active task"
+        });
+      }
+    }
+
+    /* =========================
+       UPDATE AVAILABILITY
+    ========================= */
+    worker.isOnline = isOnline;
+    worker.lastSeenAt = new Date();
+    await worker.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Worker is now ${isOnline ? "online" : "offline"}`,
+      isOnline: worker.isOnline
+    });
+
+  } catch (error) {
+    console.error("Set Availability Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+};
