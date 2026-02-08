@@ -21,9 +21,51 @@ const workerSchema = new mongoose.Schema(
       enum: ["pending", "verified", "rejected"],
       default: "pending",
     },
+
+  services: [{
+    category: {
+      type: String,
+      required: true
+    },
+    subCategories: [String],
+    hourlyRate: Number,
+    experience: Number  // years
+  }],
+  
+  /* Online status for broadcast */
+  isOnline: {
+    type: Boolean,
+    default: false
   },
+  
+  /* Location for real-time matching */
+  currentLocation: {
+    type: {
+      type: String,
+      enum: ["Point"],
+      default: "Point"
+    },
+    coordinates: [Number]  // [lng, lat]
+  },
+  
+  /* Performance metrics */
+  rating: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 5
+  },
+  completedTasks: {
+    type: Number,
+    default: 0
+  },
+  acceptanceRate: {
+    type: Number,
+    default: 100  // percentage
+  }},
   { timestamps: true },
 );
-
+workerSchema.index({ "currentLocation": "2dsphere" });
+workerSchema.index({ isOnline: 1, "services.category": 1 });
 const Worker = mongoose.model("Worker", workerSchema);
 export default Worker;

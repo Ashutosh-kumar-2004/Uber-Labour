@@ -1,131 +1,145 @@
 import mongoose from "mongoose";
-// ...
+
 const taskSchema = new mongoose.Schema(
   {
-    creatorId: {
+    /* =======================
+       USER (JOB CREATOR)
+    ======================= */
+    userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true
     },
 
-    /* Assigned worker */
-    assignedTo: {
+    /* =======================
+       WORKER (ACCEPTOR)
+    ======================= */
+    assignedWorkerId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Worker",
       default: null,
+      index: true
     },
 
-    /* Task title */
-    taskTitle: {
+    /* =======================
+       TASK DETAILS
+    ======================= */
+    title: {
       type: String,
-      required: true,
-      trim: true,
-      minlength: 3,
+      required: true
     },
 
-    /* Task status */
-    status: {
-      type: String,
-      enum: ["accepted", "completed", "inProgress", "pending"],
-      default: "pending",
-    },
-    /* Task description */
     description: {
-      type: String,
-      trim: true,
-      maxlength: 500,
-    },
-    /* Location (Geo + Address) */
-    location: {
-      geo: {
-        type: {
-          type: String,
-          enum: ["Point"],
-          default: "Point",
-        },
-        coordinates: {
-          type: [Number], // [longitude, latitude]
-          validate: {
-            validator: function (val) {
-              return !val || val.length === 2;
-            },
-            message: "Geo coordinates must be [longitude, latitude]",
-          },
-        },
-      },
-      address: {
-        type: String,
-        trim: true,
-      },
+      type: String
     },
 
-    /* Availability Date */
-    availabilityDate: {
+    taskType: {
+      type: String, // plumber, electrician, delivery, etc.
+      required: true,
+      index: true
+    },
+
+    /* =======================
+       SCHEDULING
+    ======================= */
+    scheduledStartAt: {
       type: Date,
       required: true,
+      index: true
     },
 
-    /* Availability Time Slots (Checkbox Style) */
-    availabilityTimeSlots: {
-      type: [
-        {
-          type: String,
-          enum: ["8-10", "10-12", "12-2", "2-4", "4-6"],
-        },
-      ],
-      validate: {
-        validator: function (val) {
-          return val && val.length > 0;
-        },
-        message: "At least one time slot must be selected",
-      },
+    estimatedDurationMinutes: {
+      type: Number
     },
 
-    /* Contact Number */
-    contactNumber: {
-      type: String,
-      required: true,
-      match: /^[0-9]{10}$/,
-      message: "Contact number must be a valid 10-digit number",
-    },
-
-    /* Alternate Contact Number */
-    alternateContactNumber: {
-      type: String,
-      match: /^[0-9]{10}$/,
-      message: "Alternate contact number must be a valid 10-digit number",
-    },
-
-    /* Cost with dynamic pricing */
-    cost: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-
-    /* Task category */
-    category: {
-      type: String,
-      required: true,
-    },
-
-    /* Feedback after completion */
-    feedback: {
-      type: String,
-      maxlength: 500,
-    },
-
-    /* Task images */
-    images: [
-      {
+    /* =======================
+       LOCATION (READY FOR GEO)
+    ======================= */
+    location: {
+      type: {
         type: String,
+        enum: ["Point"],
+        default: "Point"
       },
-    ],
+      coordinates: {
+        type: [Number], // [lng, lat]
+        required: true
+      }
+    },
+
+    /* =======================
+       STATUS MACHINE
+    ======================= */
+    status: {
+      type: String,
+      enum: [
+        "broadcasting", // visible to workers
+        "assigned",     // first worker accepted
+        "inProgress",   // task started
+        "completed",
+        "expired",      // not accepted before start
+        "cancelled"
+      ],
+      default: "broadcasting",
+      index: true
+    },
+
+    /* =======================
+       ACCEPTANCE RACE CONTROL
+    ======================= */
+    acceptedAt: {
+      type: Date,
+      default: null
+    },
+
+    rejectedAt: {
+      type: Date,
+      default: null
+    },
+
+    /* =======================
+       PRICE / PAYMENT
+    ======================= */
+    price: {
+      type: Number,
+      required: true
+    },
+
+    currency: {
+      type: String,
+      default: "INR"
+    },
+
+    /* =======================
+       AUDIT
+    ======================= */
+    createdAt: {
+      type: Date,
+      default: Date.now,
+      index: true
+    },
+
+    updatedAt: {
+      type: Date,
+      default: Date.now
+    }
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
-taskSchema.index({ "location.geo": "2dsphere" });
+/* =======================
+   INDEXES
+======================= */
 
-const Task = mongoose.model("Task", taskSchema);
-export default Task;
+// Geo queries (nearby workers)
+taskSchema.index({ location: "2dsphere" });
+
+// Fast broadcast lookups
+taskSchema.index({
+  status: 1,
+  taskType: 1,
+  scheduledStartAt: 1
+});
+
+export default mongoose.model("Task", taskSchema);

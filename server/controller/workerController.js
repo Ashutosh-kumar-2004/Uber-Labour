@@ -1,6 +1,14 @@
 import cloudinary from "../config/cloudinary.js";
 import Worker from "../modal/Worker.model.js";
 import User from "../modal/User.js";
+import Task from "../modal/user/Task.model.js";
+import {
+  notifyTaskAccepted,
+  notifyTaskCancelled,
+  rebroadcastTask,
+  broadcastTaskAvailable,
+  markNotificationRead
+} from "../services/notification.service.js";
 
 // Helper function to extract public ID from Cloudinary URL (Reuse this logic)
 const getPublicIdFromUrl = (url) => {
@@ -104,3 +112,261 @@ export const deleteWorker = async (req, res) => {
     res.status(500).json({ message: "Server Error" });
   }
 };
+
+export const acceptTask = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.id;
+
+    /* =========================
+       ROLE CHECK
+    ========================= */
+    if (req.user.userType !== "worker") {
+      return res.status(403).json({
+        success: false,
+        message: "Only workers can accept tasks"
+      });
+    }
+
+    /* =========================
+       WORKER VALIDATION
+    ========================= */
+    const worker = await Worker.findOne({
+      userId,
+      status: "verified",
+      isOnline: true
+    });
+
+    if (!worker) {
+      return res.status(403).json({
+        success: false,
+        message: "Worker not verified or offline"
+      });
+    }
+
+    /* =========================
+       FIRST TAP WINS (ATOMIC)
+    ========================= */
+    const task = await Task.findOneAndUpdate(
+      {
+        _id: taskId,
+        status: "broadcasting",
+        scheduledStartAt: { $gte: new Date() }
+      },
+      {
+        $set: {
+          status: "assigned",
+          assignedWorkerId: worker._id,
+          acceptedAt: new Date()
+        }
+      },
+      { new: true }
+    );
+
+    if (!task) {
+      return res.status(409).json({
+        success: false,
+        message: "Task already taken or expired"
+      });
+    }
+
+    /* =========================
+       MARK WORKER BUSY
+    ========================= */
+    await Worker.findByIdAndUpdate(worker._id, {
+      isOnline: false
+    });
+
+    /* =========================
+       NOTIFICATIONS
+    ========================= */
+    await notifyTaskAccepted({
+      taskId: task._id,
+      winnerWorkerId: worker._id
+    });
+
+    /* =========================
+       RESPONSE
+    ========================= */
+    return res.status(200).json({
+      success: true,
+      message: "Task accepted successfully",
+      task
+    });
+
+  } catch (error) {
+    console.error("Accept Task Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+};
+
+
+export const rejectTask = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.id;
+
+    /* =========================
+       ROLE CHECK
+    ========================= */
+    if (req.user.userType !== "worker") {
+      return res.status(403).json({
+        success: false,
+        message: "Only workers can reject tasks"
+      });
+    }
+
+    /* =========================
+       WORKER VALIDATION
+    ========================= */
+    const worker = await Worker.findOne({ userId });
+
+    if (!worker) {
+      return res.status(404).json({
+        success: false,
+        message: "Worker not found"
+      });
+    }
+
+    /* =========================
+       OWNERSHIP + STATE CHECK
+    ========================= */
+    const task = await Task.findOne({
+      _id: taskId,
+      assignedWorkerId: worker._id,
+      status: "assigned"
+    });
+
+    if (!task) {
+      return res.status(409).json({
+        success: false,
+        message: "Task not assigned to this worker"
+      });
+    }
+
+    /* =========================
+       REVERT TASK STATE
+    ========================= */
+    task.status = "broadcasting";
+    task.assignedWorkerId = null;
+    task.rejectedAt = new Date();
+    await task.save();
+
+    /* =========================
+       MARK WORKER AVAILABLE
+    ========================= */
+    await Worker.findByIdAndUpdate(worker._id, {
+      isOnline: true
+    });
+
+    /* =========================
+       RE-BROADCAST NOTIFICATIONS
+    ========================= */
+    await rebroadcastTask({
+      task,
+      workerFilter: {
+        "services.category": task.taskType
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Task rejected and re-broadcasted"
+    });
+
+  } catch (error) {
+    console.error("Reject Task Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+};
+
+
+export const completeTask = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.id;
+
+    /* =========================
+       ROLE CHECK
+    ========================= */
+    if (req.user.userType !== "worker") {
+      return res.status(403).json({
+        success: false,
+        message: "Only workers can complete tasks"
+      });
+    }
+
+    /* =========================
+       WORKER VALIDATION
+    ========================= */
+    const worker = await Worker.findOne({ userId });
+
+    if (!worker) {
+      return res.status(404).json({
+        success: false,
+        message: "Worker not found"
+      });
+    }
+
+    /* =========================
+       OWNERSHIP + STATE CHECK
+    ========================= */
+    const task = await Task.findOne({
+      _id: taskId,
+      assignedWorkerId: worker._id,
+      status: "inProgress"
+    });
+
+    if (!task) {
+      return res.status(409).json({
+        success: false,
+        message: "Task not in progress or not assigned to you"
+      });
+    }
+
+    /* =========================
+       COMPLETE TASK
+    ========================= */
+    task.status = "completed";
+    task.completedAt = new Date();
+    task.paymentStatus = "released";
+    await task.save();
+
+    /* =========================
+       UPDATE WORKER METRICS
+    ========================= */
+    await Worker.findByIdAndUpdate(worker._id, {
+      $inc: { completedTasks: 1 },
+      isOnline: true
+    });
+
+    /* =========================
+       NOTIFICATION to USER  ->pending
+    ========================= */
+    await notifyTaskCompleted({ taskId: task._id });
+
+    return res.status(200).json({
+      success: true,
+      message: "Task marked as completed",
+      task
+    });
+
+  } catch (error) {
+    console.error("Complete Task Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+};
+
+
