@@ -13,9 +13,38 @@ const useSetWorkerAvailability = () => {
     setSuccess(false);
 
     try {
-      const response = await axiosInstance.patch("/api/worker/availability", {
+      let location = null;
+
+      // Only fetch location if going online
+      if (status === true) {
+        if (!navigator.geolocation) {
+          throw new Error("Geolocation is not supported by your browser");
+        }
+
+        location = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              resolve({
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+              });
+            },
+            (err) => {
+              reject(new Error("Unable to retrieve your location"));
+            }
+          );
+        });
+      }
+
+      const payload = {
         isOnline: status,
-      });
+      };
+
+      if (location) {
+        payload.location = location;
+      }
+
+      const response = await axiosInstance.patch("/api/worker/availability", payload);
 
       setSuccess(true);
       setIsOnline(response.data.isOnline);

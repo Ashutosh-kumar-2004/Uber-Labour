@@ -28,6 +28,26 @@ const getPublicIdFromUrl = (url) => {
   }
 };
 
+
+export const getWorkerProfile = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const worker = await Worker.findOne({ userId });
+
+    if (!worker) {
+      return res.status(404).json({ message: "Worker profile not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      worker,
+    });
+  } catch (error) {
+    console.error("Error fetching worker profile:", error);
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
 export const verifyWorker = async (req, res) => {
   try {
     const { adharCardNumber, address, contactNumber, idCardImage } = req.body;
@@ -384,8 +404,21 @@ export const setWorkerAvailability = async (req, res) => {
     /* =========================
        UPDATE AVAILABILITY
     ========================= */
+    const { location } = req.body;
+    
     worker.isOnline = isOnline;
     worker.lastSeenAt = new Date();
+
+    if (location && location.lat && location.lng) {
+      worker.currentLocation = {
+        type: "Point",
+        coordinates: [location.lng, location.lat]
+      };
+    } else if (worker.currentLocation && (!worker.currentLocation.coordinates || worker.currentLocation.coordinates.length === 0)) {
+       // Fix for GeoJSON error if no new location provided but existing one is invalid
+       worker.currentLocation = undefined;
+    }
+
     await worker.save();
 
     return res.status(200).json({

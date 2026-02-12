@@ -43,9 +43,14 @@ const workerSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: ["Point"],
+      required: true,
       default: "Point"
     },
-    coordinates: [Number]  // [lng, lat]
+    coordinates: {
+      type: [Number],
+      required: true,
+      default: [0, 0]
+    }
   },
   
   /* Performance metrics */
@@ -62,9 +67,8 @@ const workerSchema = new mongoose.Schema(
   acceptanceRate: {
     type: Number,
     default: 100  // percentage
-  }},
-  { timestamps: true },
-);
+  }
+}, { timestamps: true });
 workerSchema.index({ "currentLocation": "2dsphere" });
 workerSchema.index({ isOnline: 1, "services.category": 1 });
 const Worker = mongoose.model("Worker", workerSchema);

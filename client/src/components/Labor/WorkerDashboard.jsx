@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import useSetWorkerAvailability from "../../hooks/worker/useSetWorkerAvailability";
+import useWorkerProfile from "../../hooks/worker/useWorkerProfile";
 import { 
   Briefcase, 
   Power, 
@@ -12,7 +14,36 @@ import {
 } from 'lucide-react';
 
 const WorkerDashboard = () => {
+  const { worker, loading: profileLoading, refetch } = useWorkerProfile();
+  const { setAvailability, loading: toggleLoading } = useSetWorkerAvailability();
+  
+  // Local state to handle optimistic updates or immediate UI feedback
   const [isOnline, setIsOnline] = useState(false);
+
+  useEffect(() => {
+    if (worker) {
+      setIsOnline(worker.isOnline);
+    }
+  }, [worker]);
+
+  const handleToggleAvailability = async () => {
+    try {
+      const newStatus = !isOnline;
+      // Optimistic update
+      setIsOnline(newStatus);
+      
+      await setAvailability(newStatus);
+      // Determine if we need to refetch or if the setAvailability returns the new state enough
+      // The hook returns the new state, but we've already set it optimistically.
+      // We could refetch to be 100% sure but it might be overkill.
+      // Let's refetch to ensure data consistency
+      refetch();
+    } catch (error) {
+      // Revert on error
+      setIsOnline(!isOnline);
+      console.error("Failed to toggle availability:", error);
+    }
+  };
 
   const nearbyTasks = [
     {
@@ -53,8 +84,9 @@ const WorkerDashboard = () => {
               {isOnline ? 'Online' : 'Offline'}
             </span>
             <button 
-              onClick={() => setIsOnline(!isOnline)}
-              className={`w-14 h-8 rounded-full flex items-center p-1 transition-all duration-300 ${isOnline ? 'bg-black' : 'bg-gray-200'}`}
+              onClick={handleToggleAvailability}
+              disabled={toggleLoading || profileLoading}
+              className={`w-14 h-8 rounded-full flex items-center p-1 transition-all duration-300 ${isOnline ? 'bg-black' : 'bg-gray-200'} ${toggleLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <div className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-300 ${isOnline ? 'translate-x-6' : 'translate-x-0'} flex items-center justify-center`}>
                 <Power size={12} className={isOnline ? 'text-black' : 'text-gray-300'} />

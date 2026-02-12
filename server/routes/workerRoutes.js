@@ -1,5 +1,5 @@
 import express from "express";
-import { verifyWorker, acceptTask, rejectTask, completeTask, setWorkerAvailability } from "../controller/workerController.js";
+import { verifyWorker, acceptTask, rejectTask, completeTask, setWorkerAvailability, getWorkerProfile } from "../controller/workerController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -7,6 +7,7 @@ const router = express.Router();
 // Apply protection to all worker routes
 router.use(protect);
 
+router.get("/profile", getWorkerProfile);
 router.post("/verify-worker", verifyWorker);
 router.patch("/availability", setWorkerAvailability);
 router.post("/tasks/:taskId/accept", acceptTask);

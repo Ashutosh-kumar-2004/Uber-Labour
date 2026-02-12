@@ -16,8 +16,8 @@ const useLogin = () => {
     setError(null);
     try {
       const response = await axiosInstance.post("/api/auth/login", credentials);
-      login(response.data);
-      dispatch(setUser(response.data));
+      login(response.data); // response.data contains { user, token }
+      dispatch(setUser(response.data.user));
       return response.data;
     } catch (err) {
       setError(err.response?.data?.message || "Login failed");
