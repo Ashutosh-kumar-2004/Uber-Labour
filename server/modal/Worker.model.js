@@ -67,6 +67,16 @@ const workerSchema = new mongoose.Schema(
   acceptanceRate: {
     type: Number,
     default: 100  // percentage
+  },
+  
+  /* Ban & Fines */
+  banExpiresAt: {
+    type: Date,
+    default: null
+  },
+  outstandingFines: {
+    type: Number,
+    default: 0
   }
 }, { timestamps: true });
 workerSchema.index({ "currentLocation": "2dsphere" });

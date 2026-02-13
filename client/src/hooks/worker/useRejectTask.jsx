@@ -1,34 +1,25 @@
-import { useState } from "react";
-import axiosInstance from "../../api/axios.jsx";
+import { useState } from 'react';
+import axiosInstance from '../../api/axios';
 
 const useRejectTask = () => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
-  const rejectTask = async (taskId) => {
-    setLoading(true);
-    setError(null);
-    setSuccess(false);
+    const rejectTask = async (taskId, reason) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await axiosInstance.post(`/api/worker/tasks/${taskId}/reject`, { reason });
+            setLoading(false);
+            return response.data;
+        } catch (err) {
+            setLoading(false);
+            setError(err.response?.data?.message || "Failed to reject task");
+            throw err;
+        }
+    };
 
-    try {
-      const response = await axiosInstance.post(
-        `/api/worker/tasks/${taskId}/reject`
-      );
-
-      setSuccess(true);
-      return response.data;
-    } catch (err) {
-      const message =
-        err.response?.data?.message || err.message || "Failed to reject task";
-      setError(message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return { rejectTask, loading, error, success };
+    return { rejectTask, loading, error };
 };
 
 export default useRejectTask;

@@ -1,36 +1,25 @@
-import { useState } from "react";
-import axiosInstance from "../../api/axios.jsx";
+import { useState } from 'react';
+import axiosInstance from '../../api/axios';
 
 const useCompleteTask = () => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
-  const [completedTask, setCompletedTask] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
-  const completeTask = async (taskId) => {
-    setLoading(true);
-    setError(null);
-    setSuccess(false);
+    const completeTask = async (taskId) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await axiosInstance.post(`/api/worker/tasks/${taskId}/complete`);
+            setLoading(false);
+            return response.data;
+        } catch (err) {
+            setLoading(false);
+            setError(err.response?.data?.message || "Failed to complete task");
+            throw err;
+        }
+    };
 
-    try {
-      const response = await axiosInstance.post(
-        `/api/worker/tasks/${taskId}/complete`
-      );
-
-      setSuccess(true);
-      setCompletedTask(response.data.task);
-      return response.data;
-    } catch (err) {
-      const message =
-        err.response?.data?.message || err.message || "Failed to complete task";
-      setError(message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return { completeTask, loading, error, success, completedTask };
+    return { completeTask, loading, error };
 };
 
 export default useCompleteTask;
