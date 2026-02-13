@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import cloudinary from "../config/cloudinary.js";
 import Worker from "../modal/Worker.model.js";
 import User from "../modal/User.js";
@@ -126,22 +127,40 @@ export const acceptTask = async (req, res) => {
     ========================= */
     const worker = await Worker.findOne({
       userId,
-      status: "verified",
-      isOnline: true
+      status: "verified"
     });
 
     if (!worker) {
       return res.status(403).json({
         success: false,
-        message: "Worker not verified or offline"
+        message: "Worker not verified"
       });
     }
 
+    // 1. Check Ban
     if (worker.banExpiresAt && new Date(worker.banExpiresAt) > new Date()) {
        return res.status(403).json({
          success: false,
          message: `You are banned until ${new Date(worker.banExpiresAt).toLocaleTimeString()}`
        });
+    }
+
+    // 2. Check Offline Status
+    // If worker is offline, they can ONLY accept if they are "Busy" (have an active task).
+    // If they are offline and have NO active task, it means they are manually offline -> Reject.
+    if (!worker.isOnline) {
+        const activeTask = await Task.findOne({
+            assignedWorkerId: worker._id,
+            status: { $in: ["assigned", "inProgress"] }
+        });
+
+        if (!activeTask) {
+             return res.status(403).json({
+                success: false,
+                message: "You are offline. Go online to accept tasks."
+             });
+        }
+        // If activeTask exists, they are "Busy", allow queueing.
     }
 
     /* =========================

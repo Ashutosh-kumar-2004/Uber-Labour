@@ -23,7 +23,8 @@ import {
   Navigation,
   Map as MapIcon,
   ShieldCheck,
-  Zap
+  Zap,
+  IndianRupee
 } from 'lucide-react';
 
 const ErrorModal = ({ error, onClose }) => {
@@ -252,11 +253,7 @@ const WorkerDashboard = () => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showBanModal, setShowBanModal] = useState(false);
-  const [banInfo, setBanInfo] = useState(null);
-
-  // ... effects ...
-  // ...
-
+  // ... (Fetch tasks effect remains same) ...
   useEffect(() => {
     if (worker) {
       if (worker.currentLocation) {
@@ -266,10 +263,19 @@ const WorkerDashboard = () => {
     }
   }, [worker, selectedDistance, fetchTasks]);
 
+  // Derived state for ban
+  const isBanned = worker?.banExpiresAt && new Date(worker.banExpiresAt) > new Date();
+  const banExpiresAt = worker?.banExpiresAt;
+
+  // If banned, show BannedScreen
+  if (isBanned) {
+    return <BannedScreen banExpiresAt={banExpiresAt} />;
+  }
+
   const handleToggleAvailability = async () => {
     // Check ban first
-    if (banInfo && new Date(banInfo) > new Date()) {
-      alert(`You are banned until ${new Date(banInfo).toLocaleTimeString()}`);
+    if (isBanned) {
+      alert(`You are banned until ${new Date(banExpiresAt).toLocaleTimeString()}`);
       return;
     }
 
@@ -288,6 +294,9 @@ const WorkerDashboard = () => {
     }
   };
 
+  // ... (rest of handlers) ...
+
+  // ... inside return ...
   const handleDistanceChange = (distance) => {
     setSelectedDistance(distance);
     setIsCustomDistance(false);
@@ -367,7 +376,7 @@ const WorkerDashboard = () => {
       console.error(err);
       alert("Failed to reject task: " + (err.response?.data?.message || err.message));
     }
-  }; // Logic mostly inside modal, this is the trigger
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-black relative">
@@ -401,10 +410,10 @@ const WorkerDashboard = () => {
         <div className="flex items-center gap-6">
           {/* Availability Toggle / Ban Status */}
           <div className="flex items-center gap-3">
-            {banInfo ? (
+            {isBanned ? (
               <div className="px-3 py-1 bg-red-100 text-red-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-red-200 flex items-center gap-1">
                 <AlertTriangle size={12} />
-                Banned until {new Date(banInfo).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                Banned until {new Date(banExpiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
             ) : (
               <>
@@ -454,10 +463,12 @@ const WorkerDashboard = () => {
         {activeTask && (
           <div className="bg-black text-white rounded-3xl p-8 relative overflow-hidden shadow-2xl animate-fade-in-up">
             {/* ... Background Blobs ... */}
+            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-green-500/20 rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
 
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-8">
-                {/* ... Header ... */}
+                {/* Header */}
                 <div className="flex items-center gap-3 bg-zinc-900/80 backdrop-blur-sm p-2 pr-4 rounded-full border border-zinc-800">
                   <div className="bg-green-500 p-1.5 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]">
                     <Zap size={14} fill="currentColor" className="text-white" />
@@ -466,9 +477,32 @@ const WorkerDashboard = () => {
                 </div>
               </div>
 
-              {/* ... Title & Address ... */}
+              {/* Title & Address */}
+              <div className="mb-8">
+                <h3 className="text-3xl font-black uppercase tracking-tighter mb-2">{activeTask.title}</h3>
+                <div className="flex items-center gap-2 text-gray-400">
+                  <MapIcon size={16} />
+                  <p className="font-bold text-sm tracking-wide">{activeTask.address}</p>
+                </div>
+              </div>
 
-              {/* ... Metrics ... */}
+              {/* Metrics */}
+              <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
+                  <div className="flex items-center gap-2 text-gray-400 mb-1">
+                    <IndianRupee size={14} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Earnings</span>
+                  </div>
+                  <p className="text-2xl font-black tracking-tighter">₹{activeTask.price}</p>
+                </div>
+                <div className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
+                  <div className="flex items-center gap-2 text-gray-400 mb-1">
+                    <Clock size={14} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Est. Time</span>
+                  </div>
+                  <p className="text-2xl font-black tracking-tighter">{activeTask.estimatedDurationMinutes || '--'} min</p>
+                </div>
+              </div>
 
               <div className="flex gap-4">
                 <button
@@ -504,9 +538,6 @@ const WorkerDashboard = () => {
             </div>
           </div>
         )}
-
-        {/* ... Rest of Dashboard ... */}
-
 
         {/* Dynamic Feed Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
