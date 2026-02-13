@@ -65,3 +65,14 @@ export const getGeolocation = () => {
     }
   });
 };
+
+export const WORKER_API_ENDPOINTS = {
+  GET_AVAILABLE_TASKS: "/api/worker/tasks/available",
+  SET_AVAILABILITY: "/api/worker/availability",
+};
+
+export const DISTANCE_OPTIONS = [
+  { label: "10 km", value: 10 },
+  { label: "20 km", value: 20 },
+  { label: "100 km", value: 100 },
+];

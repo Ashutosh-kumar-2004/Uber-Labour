@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import useSetWorkerAvailability from "../../hooks/worker/useSetWorkerAvailability";
 import useWorkerProfile from "../../hooks/worker/useWorkerProfile";
+import useAvailableTasks from "../../hooks/worker/useAvailableTasks";
+import { DISTANCE_OPTIONS } from "../../constants/task.constants";
 import { 
   Briefcase, 
   Power, 
@@ -10,15 +12,48 @@ import {
   Clock, 
   CheckCircle,
   Bell,
-  ArrowUpRight
+  ArrowUpRight,
+  Filter,
+  X,
+  AlertTriangle
 } from 'lucide-react';
+
+const ErrorModal = ({ error, onClose }) => {
+  if (!error) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+      <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl transform transition-all scale-100 opacity-100">
+        <div className="flex flex-col items-center text-center space-y-4">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+            <AlertTriangle className="text-red-600" size={32} />
+          </div>
+          <div>
+            <h3 className="text-xl font-black uppercase tracking-tighter text-red-600">Error</h3>
+            <p className="text-gray-500 text-sm font-medium mt-1">{error}</p>
+          </div>
+          <button 
+            onClick={onClose}
+            className="w-full bg-black text-white py-3 rounded-xl font-bold uppercase tracking-widest hover:bg-zinc-800 transition-all"
+          >
+            Dimiss
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const WorkerDashboard = () => {
   const { worker, loading: profileLoading, refetch } = useWorkerProfile();
   const { setAvailability, loading: toggleLoading } = useSetWorkerAvailability();
+  const { tasks, loading: tasksLoading, error: tasksError, fetchTasks, setError: setTasksError } = useAvailableTasks();
   
-  // Local state to handle optimistic updates or immediate UI feedback
+  // Local state
   const [isOnline, setIsOnline] = useState(false);
+  const [selectedDistance, setSelectedDistance] = useState(10);
+  const [customDistance, setCustomDistance] = useState("");
+  const [isCustomDistance, setIsCustomDistance] = useState(false);
 
   useEffect(() => {
     if (worker) {
@@ -26,48 +61,46 @@ const WorkerDashboard = () => {
     }
   }, [worker]);
 
+  // Fetch tasks when online and location/distance changes
+  useEffect(() => {
+    if (isOnline && worker?.currentLocation?.coordinates) {
+        const [lng, lat] = worker.currentLocation.coordinates;
+        const distance = isCustomDistance && customDistance ? parseFloat(customDistance) : selectedDistance;
+        
+        fetchTasks({ lat, lng, distance });
+    }
+  }, [isOnline, worker, selectedDistance, customDistance, isCustomDistance, fetchTasks]);
+
   const handleToggleAvailability = async () => {
     try {
       const newStatus = !isOnline;
-      // Optimistic update
-      setIsOnline(newStatus);
+      setIsOnline(newStatus); // Optimistic update
       
       await setAvailability(newStatus);
-      // Determine if we need to refetch or if the setAvailability returns the new state enough
-      // The hook returns the new state, but we've already set it optimistically.
-      // We could refetch to be 100% sure but it might be overkill.
-      // Let's refetch to ensure data consistency
       refetch();
     } catch (error) {
-      // Revert on error
-      setIsOnline(!isOnline);
+      setIsOnline(!isOnline); // Revert on error
       console.error("Failed to toggle availability:", error);
     }
   };
 
-  const nearbyTasks = [
-    {
-      id: 1,
-      category: "Maintenance",
-      title: "Fix Leaky Kitchen Pipe",
-      distance: "1.2 km",
-      pay: "₹350",
-      duration: "1 hr",
-      difficulty: "Beginner Friendly"
-    },
-    {
-      id: 2,
-      category: "Construction",
-      title: "Debris Removal - Site B",
-      distance: "3.5 km",
-      pay: "₹600",
-      duration: "3 hrs",
-      difficulty: "High Effort"
+  const handleDistanceChange = (value) => {
+    setIsCustomDistance(false);
+    setSelectedDistance(value);
+  };
+
+  const handleCustomDistanceSubmit = (e) => {
+    e.preventDefault();
+    if (customDistance && !isNaN(customDistance)) {
+        setIsCustomDistance(true);
+        // Effect will trigger fetch
     }
-  ];
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-black">
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-black relative">
+      <ErrorModal error={tasksError} onClose={() => setTasksError(null)} />
+
       {/* Top Navbar */}
       <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-2">
@@ -136,36 +169,100 @@ const WorkerDashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Task Feed */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <h3 className="text-xl font-black uppercase tracking-tighter">Nearby Opportunities</h3>
-              <div className="h-[1px] flex-grow mx-4 bg-gray-200"></div>
+              
+              {/* Distance Filter */}
+              {isOnline && (
+                <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+                    {DISTANCE_OPTIONS.map((opt) => (
+                        <button
+                            key={opt.value}
+                            onClick={() => handleDistanceChange(opt.value)}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
+                                !isCustomDistance && selectedDistance === opt.value 
+                                ? 'bg-black text-white shadow-md' 
+                                : 'text-gray-500 hover:bg-gray-100'
+                            }`}
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
+                    <div className="h-4 w-[1px] bg-gray-200 mx-1"></div>
+                    <form onSubmit={handleCustomDistanceSubmit} className="flex items-center">
+                        <input 
+                            type="number" 
+                            min={0}
+                            placeholder="Custom"
+                            value={customDistance}
+                            onChange={(e) => setCustomDistance(e.target.value)}
+                            className={`w-16 px-2 py-1 text-xs font-bold border rounded-l-lg focus:outline-none focus:ring-1 focus:ring-black ${
+                                isCustomDistance ? 'border-black bg-gray-50' : 'border-gray-200'
+                            }`}
+                        />
+                        <button 
+                            type="submit"
+                            className={`px-2 py-1 rounded-r-lg text-[10px] font-bold uppercase tracking-widest border border-l-0 transition-all ${
+                                isCustomDistance 
+                                ? 'bg-black text-white border-black' 
+                                : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+                            }`}
+                        >
+                            km
+                        </button>
+                    </form>
+                </div>
+              )}
             </div>
 
             {!isOnline ? (
               <div className="bg-gray-100 rounded-3xl p-12 text-center border-2 border-dashed border-gray-200">
                 <p className="text-gray-400 font-bold uppercase tracking-widest text-sm italic">Go Online to see available tasks in your area</p>
               </div>
+            ) : tasksLoading ? (
+                <div className="space-y-4">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="bg-white border border-gray-100 p-6 rounded-2xl animate-pulse h-40"></div>
+                    ))}
+                </div>
+            ) : tasks.length === 0 ? (
+                <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm">
+                    <p className="text-gray-400 font-bold uppercase tracking-widest text-sm italic">No tasks found within this range.</p>
+                    <button 
+                        onClick={() => setSelectedDistance(100)}
+                        className="mt-4 text-xs font-bold underline"
+                    >
+                        Try increasing distance
+                    </button>
+                </div>
             ) : (
               <div className="space-y-4">
-                {nearbyTasks.map((task) => (
-                  <div key={task.id} className="bg-white border border-gray-200 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-black transition-all">
+                {tasks.map((task) => (
+                  <div key={task._id} className="bg-white border border-gray-200 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-black transition-all group shadow-sm hover:shadow-md">
                     <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="px-2 py-0.5 bg-gray-100 text-[10px] font-black uppercase tracking-widest rounded">{task.category}</span>
-                        <span className="text-gray-400 text-[10px] font-bold italic">{task.difficulty}</span>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="px-2 py-0.5 bg-gray-100 text-[10px] font-black uppercase tracking-widest rounded text-gray-600">{task.taskType}</span>
+                        {/* Calculate distance if needed, or if backend provides it */}
                       </div>
-                      <h4 className="text-lg font-black uppercase tracking-tighter">{task.title}</h4>
-                      <div className="flex items-center gap-4 mt-2 text-gray-500 text-xs">
-                        <div className="flex items-center gap-1"><MapPin size={14} /> {task.distance}</div>
-                        <div className="flex items-center gap-1"><Clock size={14} /> {task.duration}</div>
+                      <h4 className="text-lg font-black uppercase tracking-tighter group-hover:text-blue-600 transition-colors">{task.title}</h4>
+                      <p className="text-xs text-gray-500 line-clamp-1 mt-1">{task.description}</p>
+                      
+                      <div className="flex items-center gap-4 mt-3 text-gray-400 text-xs font-medium">
+                        <div className="flex items-center gap-1"><MapPin size={14} /> 
+                            {/* Ideally calculate distance from worker location to task location */}
+                            Nearby
+                        </div>
+                        <div className="flex items-center gap-1"><Clock size={14} /> 
+                            {task.estimatedDurationMinutes ? `${task.estimatedDurationMinutes} mins` : 'Flexible'}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 border-t md:border-t-0 pt-4 md:pt-0 mt-2 md:mt-0">
                       <div className="text-right">
-                        <p className="text-2xl font-black tracking-tighter">{task.pay}</p>
+                        <p className="text-2xl font-black tracking-tighter">₹{task.price}</p>
                         <p className="text-[10px] font-bold text-gray-400 uppercase">You Keep 85%</p>
                       </div>
-                      <button className="bg-black text-white p-4 rounded-xl hover:bg-zinc-800 transition-all">
+                      <button className="bg-black text-white p-4 rounded-xl hover:bg-zinc-800 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">
                         <ArrowUpRight size={20} />
                       </button>
                     </div>

@@ -40,26 +40,40 @@ export const createWork = async (req, res) => {
       }
     }
 
+    // Construct scheduledStartAt from availabilityDate and first time slot (if any)
+    // Defaulting to the date at 9 AM if no slot provided, or parsing simple logic
+    let scheduledDate = new Date(availabilityDate);
+    if (availabilityTimeSlots && availabilityTimeSlots.length > 0) {
+        // time slot format "8-10", "10-12"
+        const startHour = parseInt(availabilityTimeSlots[0].split('-')[0]);
+        scheduledDate.setHours(startHour, 0, 0, 0);
+    }
+
     // Create the task
     const task = new Task({
-      creatorId: req.user._id,
-      taskTitle,
+      userId: req.user._id, // Schema: userId
+      title: taskTitle,      // Schema: title
       description,
-      category,
-      cost,
-      availabilityDate,
-      availabilityTimeSlots,
+      taskType: category,    // Schema: taskType
+      subcategory,           // Schema: subcategory
+      price: cost,           // Schema: price
+      scheduledStartAt: scheduledDate, // Schema: scheduledStartAt (Date)
+      availabilityTimeSlots, 
+      
       contactNumber,
       alternateContactNumber,
-      location: {
-        geo: {
-          type: "Point",
-          coordinates: [parseFloat(location.lng), parseFloat(location.lat)],
-        },
-        address,
-      },
+      address,
       images: imageUrls,
+
+      location: {
+        type: "Point",
+        coordinates: [parseFloat(location.lng), parseFloat(location.lat)],
+      },
     });
+    
+    // NOTE: Sending extra fields (images, contact) that are not in schema will be ignored.
+    // If the user wants to save images/contact, we MUST update Task.model.js.
+    // Given the error was validation failure on required fields, priority 1 is fixing that.
 
     await task.save();
 

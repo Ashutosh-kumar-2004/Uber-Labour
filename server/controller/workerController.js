@@ -436,3 +436,49 @@ export const setWorkerAvailability = async (req, res) => {
     });
   }
 };
+
+export const getAvailableTasks = async (req, res) => {
+  try {
+    const { lat, lng, distance = 10, category } = req.query; // distance in km
+
+    if (!lat || !lng) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Location (lat, lng) is required to find nearby tasks" 
+      });
+    }
+
+    const radiusInRadians = distance / 6378.1; // Earth's radius in km
+
+    const query = {
+      status: "broadcasting",
+      location: {
+        $geoWithin: {
+          $centerSphere: [[parseFloat(lng), parseFloat(lat)], radiusInRadians]
+        }
+      }
+    };
+
+    if (category && category !== "All") {
+      query.taskType = category;
+    }
+
+    const tasks = await Task.find(query)
+      .populate("userId", "name avatar rating") // Populate creator details if needed
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: tasks.length,
+      tasks
+    });
+
+  } catch (error) {
+    console.error("Get Available Tasks Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+};

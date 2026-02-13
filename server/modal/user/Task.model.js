@@ -41,12 +41,41 @@ const taskSchema = new mongoose.Schema(
     },
 
     /* =======================
+       ADDITIONAL INFO
+    ======================= */
+    images: {
+      type: [String],
+      default: []
+    },
+
+    contactNumber: {
+      type: String
+    },
+
+    alternateContactNumber: {
+      type: String
+    },
+    
+    subcategory: {
+        type: String
+    },
+
+    address: {
+        type: String, // Human readable address
+    },
+
+    /* =======================
        SCHEDULING
     ======================= */
     scheduledStartAt: {
       type: Date,
       required: true,
       index: true
+    },
+    
+    // Store original preference if needed
+    availabilityTimeSlots: {
+        type: [String] 
     },
 
     estimatedDurationMinutes: {

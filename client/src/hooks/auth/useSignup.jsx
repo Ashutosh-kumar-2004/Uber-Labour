@@ -20,7 +20,7 @@ const useSignup = () => {
       // If signup returns a token (e.g. for normal users), log them in immediately
       if (response.data.token) {
         login(response.data);
-        dispatch(setUser(response.data.user));
+        dispatch(setUser({ ...response.data.user, token: response.data.token }));
       }
       
       return response.data;

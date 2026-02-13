@@ -17,7 +17,8 @@ const useLogin = () => {
     try {
       const response = await axiosInstance.post("/api/auth/login", credentials);
       login(response.data); // response.data contains { user, token }
-      dispatch(setUser(response.data.user));
+      // Dispatch user WITH token so selectors can find it
+      dispatch(setUser({ ...response.data.user, token: response.data.token }));
       return response.data;
     } catch (err) {
       setError(err.response?.data?.message || "Login failed");
