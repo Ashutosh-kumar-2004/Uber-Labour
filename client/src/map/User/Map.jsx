@@ -185,7 +185,7 @@ const LocationMarker = ({
   );
 };
 
-const Map = ({ onLocationSelect, selectedLocation }) => {
+const Map = ({ onLocationSelect, selectedLocation, readOnly = false }) => {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [mapType, setMapType] = useState("satellite"); // 'normal' | 'satellite'
 
@@ -255,7 +255,7 @@ const Map = ({ onLocationSelect, selectedLocation }) => {
               : "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
           }
         />
-        <SearchControl onLocationSelect={onLocationSelect} />
+        {!readOnly && <SearchControl onLocationSelect={onLocationSelect} />}
         <LocationMarker
           onLocationSelect={onLocationSelect}
           selectedLocation={selectedLocation}

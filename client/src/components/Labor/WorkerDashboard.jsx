@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import useSetWorkerAvailability from "../../hooks/worker/useSetWorkerAvailability";
 import useWorkerProfile from "../../hooks/worker/useWorkerProfile";
 import useAvailableTasks from "../../hooks/worker/useAvailableTasks";
+import useAcceptTask from "../../hooks/worker/useAcceptTask";
+import TaskDetailsModal from './TaskDetailsModal';
 import { DISTANCE_OPTIONS } from "../../constants/task.constants";
 import { 
   Briefcase, 
@@ -15,7 +17,9 @@ import {
   ArrowUpRight,
   Filter,
   X,
-  AlertTriangle
+  AlertTriangle,
+  Navigation,
+  Map as MapIcon
 } from 'lucide-react';
 
 const ErrorModal = ({ error, onClose }) => {
@@ -45,15 +49,17 @@ const ErrorModal = ({ error, onClose }) => {
 };
 
 const WorkerDashboard = () => {
-  const { worker, loading: profileLoading, refetch } = useWorkerProfile();
+  const { worker, loading: profileLoading, refetch: refetchProfile } = useWorkerProfile();
   const { setAvailability, loading: toggleLoading } = useSetWorkerAvailability();
   const { tasks, loading: tasksLoading, error: tasksError, fetchTasks, setError: setTasksError } = useAvailableTasks();
+  const { acceptTask, loading: acceptLoading, error: acceptError } = useAcceptTask();
   
   // Local state
   const [isOnline, setIsOnline] = useState(false);
   const [selectedDistance, setSelectedDistance] = useState(10);
   const [customDistance, setCustomDistance] = useState("");
   const [isCustomDistance, setIsCustomDistance] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
 
   useEffect(() => {
     if (worker) {
@@ -67,7 +73,10 @@ const WorkerDashboard = () => {
         const [lng, lat] = worker.currentLocation.coordinates;
         const distance = isCustomDistance && customDistance ? parseFloat(customDistance) : selectedDistance;
         
-        fetchTasks({ lat, lng, distance });
+        // Only fetch if we have valid coordinates
+        if (lat && lng) {
+            fetchTasks({ lat, lng, distance });
+        }
     }
   }, [isOnline, worker, selectedDistance, customDistance, isCustomDistance, fetchTasks]);
 
@@ -77,7 +86,7 @@ const WorkerDashboard = () => {
       setIsOnline(newStatus); // Optimistic update
       
       await setAvailability(newStatus);
-      refetch();
+      refetchProfile();
     } catch (error) {
       setIsOnline(!isOnline); // Revert on error
       console.error("Failed to toggle availability:", error);
@@ -97,9 +106,54 @@ const WorkerDashboard = () => {
     }
   };
 
+  const calculateDistance = (taskLocation) => {
+    if (!worker?.currentLocation?.coordinates || !taskLocation?.coordinates) return null;
+    
+    const [lng1, lat1] = worker.currentLocation.coordinates;
+    const [lng2, lat2] = taskLocation.coordinates;
+    
+    // Haversine formula
+    const R = 6371; // km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const d = R * c;
+    
+    return d.toFixed(1);
+  };
+
+  const handleAcceptTask = async (taskId) => {
+    try {
+        await acceptTask(taskId);
+        setSelectedTask(null);
+        // Refresh tasks and profile (availability might change)
+        const [lng, lat] = worker.currentLocation.coordinates;
+        const distance = isCustomDistance && customDistance ? parseFloat(customDistance) : selectedDistance;
+        fetchTasks({ lat, lng, distance });
+        refetchProfile();
+    } catch (err) {
+        console.error("Failed to accept task", err);
+        // Error is handled by ErrorModal via acceptError if we pass it, or we can use local state
+         setTasksError(err.message || "Failed to accept task");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-black relative">
-      <ErrorModal error={tasksError} onClose={() => setTasksError(null)} />
+      <ErrorModal error={tasksError || acceptError} onClose={() => setTasksError(null)} />
+      
+      {/* Task Details Modal */}
+      {selectedTask && (
+        <TaskDetailsModal 
+            task={selectedTask} 
+            onClose={() => setSelectedTask(null)} 
+            onAccept={handleAcceptTask}
+            accepting={acceptLoading}
+        />
+      )}
 
       {/* Top Navbar */}
       <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
@@ -135,7 +189,7 @@ const WorkerDashboard = () => {
       </nav>
 
       <main className="max-w-6xl mx-auto w-full p-6 space-y-8">
-        {/* Stats Grid */}
+        {/* Stats Grid - Keeping as is for now, maybe hook later */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-black text-white p-6 rounded-3xl shadow-xl">
             <div className="flex justify-between items-start mb-4">
@@ -151,8 +205,8 @@ const WorkerDashboard = () => {
               <Star size={24} />
               <span className="text-[10px] font-bold uppercase tracking-widest italic">Rating</span>
             </div>
-            <h2 className="text-4xl font-black tracking-tighter">4.9</h2>
-            <p className="text-gray-500 text-xs mt-2 font-medium">18 Completed Tasks</p>
+            <h2 className="text-4xl font-black tracking-tighter">{worker?.rating || "N/A"}</h2>
+            <p className="text-gray-500 text-xs mt-2 font-medium">{worker?.completedTasks || 0} Completed Tasks</p>
           </div>
 
           <div className="bg-white border border-gray-200 p-6 rounded-3xl">
@@ -237,20 +291,29 @@ const WorkerDashboard = () => {
                 </div>
             ) : (
               <div className="space-y-4">
-                {tasks.map((task) => (
+                {tasks.map((task) => {
+                  const dist = calculateDistance(task.location);
+                  return (
                   <div key={task._id} className="bg-white border border-gray-200 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-black transition-all group shadow-sm hover:shadow-md">
                     <div>
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="px-2 py-0.5 bg-gray-100 text-[10px] font-black uppercase tracking-widest rounded text-gray-600">{task.taskType}</span>
-                        {/* Calculate distance if needed, or if backend provides it */}
+                        <span className="px-2 py-0.5 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded">{task.taskType}</span>
+                        {task.subcategory && (
+                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold uppercase tracking-widest rounded">{task.subcategory}</span>
+                        )}
                       </div>
                       <h4 className="text-lg font-black uppercase tracking-tighter group-hover:text-blue-600 transition-colors">{task.title}</h4>
-                      <p className="text-xs text-gray-500 line-clamp-1 mt-1">{task.description}</p>
                       
+                      {/* Address */}
+                      <div className="flex items-center gap-1.5 mt-1 mb-2">
+                         <MapIcon size={12} className="text-gray-400" />
+                         <p className="text-xs font-bold text-gray-500 line-clamp-1">{task.address || "Location not specified"}</p>
+                      </div>
+
                       <div className="flex items-center gap-4 mt-3 text-gray-400 text-xs font-medium">
-                        <div className="flex items-center gap-1"><MapPin size={14} /> 
-                            {/* Ideally calculate distance from worker location to task location */}
-                            Nearby
+                        <div className="flex items-center gap-1">
+                            <Navigation size={14} className={dist && dist < 5 ? "text-green-600" : ""} /> 
+                            {dist ? `${dist} km away` : 'Nearby'}
                         </div>
                         <div className="flex items-center gap-1"><Clock size={14} /> 
                             {task.estimatedDurationMinutes ? `${task.estimatedDurationMinutes} mins` : 'Flexible'}
@@ -262,12 +325,15 @@ const WorkerDashboard = () => {
                         <p className="text-2xl font-black tracking-tighter">₹{task.price}</p>
                         <p className="text-[10px] font-bold text-gray-400 uppercase">You Keep 85%</p>
                       </div>
-                      <button className="bg-black text-white p-4 rounded-xl hover:bg-zinc-800 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">
+                      <button 
+                        onClick={() => setSelectedTask(task)}
+                        className="bg-black text-white p-4 rounded-xl hover:bg-zinc-800 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1"
+                      >
                         <ArrowUpRight size={20} />
                       </button>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             )}
           </div>

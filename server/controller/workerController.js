@@ -38,9 +38,15 @@ export const getWorkerProfile = async (req, res) => {
       return res.status(404).json({ message: "Worker profile not found" });
     }
 
+    const activeTask = await Task.findOne({
+      assignedWorkerId: worker._id,
+      status: { $in: ["assigned", "inProgress"] }
+    });
+
     res.status(200).json({
       success: true,
       worker,
+      activeTask
     });
   } catch (error) {
     console.error("Error fetching worker profile:", error);
