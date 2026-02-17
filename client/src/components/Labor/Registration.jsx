@@ -7,7 +7,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import useWorkerRegistration from "../../hooks/user/useWorkerRegistration";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 const Registration = () => {
   const [step, setStep] = useState(1); // 1: Info, 2: Upload, 3: Pending

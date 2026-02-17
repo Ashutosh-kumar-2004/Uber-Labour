@@ -31,7 +31,7 @@ export default function LoginPage() {
     try {
       const response = await loginUser(form);
       const userType = response.user.userType;
-
+      console.log(response);
       if (userType === "admin") {
         navigate("/admin");
       } else if (userType === "worker" && response.user.isVerified === false) {

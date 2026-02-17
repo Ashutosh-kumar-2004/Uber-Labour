@@ -47,24 +47,13 @@ const userSchema = new mongoose.Schema(
     },
     contactNumber: {
       type: String,
-      required: [
-        function () {
-          return this.userType === "worker";
-        },
-        "Contact is required",
-      ],
       unique: true,
+      sparse: true,
       trim: true,
       match: [/^\d{10}$/, "Please enter a valid 10-digit contact number"],
     },
     address: {
       type: String,
-      required: [
-        function () {
-          return this.userType === "worker";
-        },
-        "Address is required",
-      ],
       trim: true,
     },
     isVerified: {
