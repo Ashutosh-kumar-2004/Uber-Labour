@@ -7,12 +7,17 @@ import {
   Star,
   Users,
   CheckCircle,
+  ChevronRight,
 } from "lucide-react";
 import CreateTask from "./CreateTask.jsx";
 import LocationPermissionModal from "./LocationPermissionModal.jsx";
 import { useDispatch, useSelector } from "react-redux";
 import { setUserLocation } from "../../redux/slices/userSlice.jsx";
 import { getGeolocation } from "../../constants/task.constants.jsx";
+import useMyTasks from "../../hooks/user/useMyTasks.jsx";
+import { Trash2, RefreshCw, Clock, AlertCircle, IndianRupee, Image as ImageIcon, ChevronDown, ChevronUp } from "lucide-react";
+import CustomErrorModal from "../constants/CustomErrorModal.jsx";
+import TaskDetailsModal from "./TaskDetailsModal.jsx";
 
 const Dashboard = () => {
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
@@ -205,6 +210,14 @@ const Dashboard = () => {
             </div>
           ))}
         </div>
+
+        {/* MY POSTED TASKS SECTION */}
+        <div className="mt-16">
+          <h2 className="text-3xl font-black mb-8 uppercase tracking-tighter">
+            My Posted Tasks
+          </h2>
+          <MyTasksSection />
+        </div>
       </main>
 
       {/* Footer (Simplified) */}
@@ -245,6 +258,176 @@ const Dashboard = () => {
         </div>
       )}
     </div>
+  );
+};
+
+const MyTasksSection = () => {
+  const { tasks, loading, error, deleteTask, renewTask, refetch } = useMyTasks();
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [errorModal, setErrorModal] = useState({ isOpen: false, message: "" });
+
+  // Handle global errors
+  React.useEffect(() => {
+    if (error) {
+      setErrorModal({ isOpen: true, message: error });
+    }
+  }, [error]);
+
+  const handleDismissError = () => {
+    setErrorModal({ isOpen: false, message: "" });
+  };
+
+  const handleRenew = async (taskId) => {
+    try {
+      await renewTask(taskId);
+    } catch (e) {
+      setErrorModal({ isOpen: true, message: e.message || "Failed to renew task" });
+    }
+  };
+
+  const handleDelete = async (taskId) => {
+    try {
+      await deleteTask(taskId);
+    } catch (e) {
+      setErrorModal({ isOpen: true, message: e.message || "Failed to delete task" });
+    }
+  };
+
+  if (loading) return (
+    <div className="flex justify-center py-20">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
+    </div>
+  );
+
+  if (!tasks || tasks.length === 0) return (
+    <div className="text-center py-20 bg-gray-50 rounded-3xl border border-dashed border-gray-300">
+      <Briefcase className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+      <h3 className="text-lg font-bold text-gray-900">No Works Posted Yet</h3>
+      <p className="text-gray-500">Create your first task to get started.</p>
+    </div>
+  );
+
+  return (
+    <>
+      <CustomErrorModal
+        isOpen={errorModal.isOpen}
+        onClose={handleDismissError}
+        title="Task Error"
+        message={errorModal.message}
+      />
+
+      <TaskDetailsModal
+        isOpen={!!selectedTask}
+        task={selectedTask}
+        onClose={() => setSelectedTask(null)}
+        onRenew={handleRenew}
+        onDelete={handleDelete}
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+        {tasks.map((task) => {
+          // Expiration Logic: Match logic in TaskDetailsModal
+          const isExpired = task.status === "expired" ||
+            (task.expiresAt && new Date(task.expiresAt) < new Date()) ||
+            (!task.expiresAt && task.status === "broadcasting" && new Date(task.scheduledStartAt) < new Date());
+
+          return (
+            <div
+              key={task._id}
+              className={`
+                    relative bg-white rounded-3xl overflow-hidden transition-all duration-500 group
+                    ${isExpired ? 'border-2 border-red-100 shadow-red-100/50' : 'border border-gray-100 shadow-sm hover:shadow-2xl hover:-translate-y-1'}
+                `}
+            >
+              {/* STATUS BADGE */}
+              <div className={`absolute top-4 right-4 z-10 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-md shadow-sm flex items-center gap-1.5 ${task.status === 'completed' ? 'bg-green-100 text-green-700' :
+                task.status === 'inProgress' ? 'bg-blue-100 text-blue-700' :
+                  task.status === 'assigned' ? 'bg-purple-100 text-purple-700' :
+                    isExpired ? 'bg-red-500 text-white animate-pulse' :
+                      'bg-black text-white'
+                }`}>
+                {isExpired && <AlertCircle size={10} />}
+                {isExpired ? 'Expired' : task.status}
+              </div>
+
+              {/* IMAGE HEADER (if exists) */}
+              <div className="h-32 w-full bg-gray-100 relative overflow-hidden cursor-pointer" onClick={() => setSelectedTask(task)}>
+                {task.images && task.images.length > 0 ? (
+                  <img
+                    src={task.images[0]}
+                    alt={task.title}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-300">
+                    <Briefcase size={32} />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent"></div>
+              </div>
+
+              {/* CARD BODY */}
+              <div className="p-6 relative -mt-6">
+                <div className="bg-white rounded-t-2xl pt-2">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+                    {task.taskType} {task.subcategory && `• ${task.subcategory}`}
+                  </p>
+                  <h3 className="text-2xl font-black uppercase tracking-tighter text-gray-900 leading-none mb-4 cursor-pointer hover:underline decoration-2 underline-offset-4" onClick={() => setSelectedTask(task)}>
+                    {task.title}
+                  </h3>
+
+                  {/* KEY DETAILS */}
+                  <div className="space-y-3 mb-6">
+                    {/* PRICE */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-900">
+                        <IndianRupee size={14} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Budget</p>
+                        <p className="text-sm font-bold text-gray-900">₹{task.price}</p>
+                      </div>
+                    </div>
+
+                    {/* DATE */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-900">
+                        <Clock size={14} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Posted Date</p>
+                        <p className="text-sm font-bold text-gray-900">{new Date(task.createdAt).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ACTIONS */}
+                  <div className="flex flex-col gap-2">
+                    {isExpired && (
+                      <button
+                        onClick={() => handleRenew(task._id)}
+                        className="w-full py-3 bg-red-600 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-red-700 transition-all shadow-lg hover:shadow-red-500/30 flex items-center justify-center gap-2"
+                      >
+                        <RefreshCw size={14} className="animate-spin-slow" /> Renew Task
+                      </button>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSelectedTask(task)}
+                        className="flex-1 py-2.5 bg-gray-900 hover:bg-black text-white text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-1 shadow-md hover:shadow-xl transform active:scale-95"
+                      >
+                        More Info <ChevronRight size={12} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 };
 

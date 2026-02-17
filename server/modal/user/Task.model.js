@@ -100,6 +100,9 @@ const taskSchema = new mongoose.Schema(
     /* =======================
        STATUS MACHINE
     ======================= */
+    /* =======================
+       STATUS MACHINE
+    ======================= */
     status: {
       type: String,
       enum: [
@@ -107,11 +110,17 @@ const taskSchema = new mongoose.Schema(
         "assigned",     // first worker accepted
         "inProgress",   // task started
         "completed",
-        "expired",      // not accepted before start
+        "expired",      // not accepted before start (legacy/manual)
         "cancelled"
       ],
       default: "broadcasting",
       index: true
+    },
+    
+    // Automatic Expiration
+    expiresAt: {
+        type: Date,
+        index: true // Important for querying active tasks
     },
 
     /* =======================

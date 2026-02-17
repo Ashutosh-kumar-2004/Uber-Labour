@@ -8,6 +8,7 @@ const useSetWorkerAvailability = () => {
   const [isOnline, setIsOnline] = useState(null);
 
   const setAvailability = async (status) => {
+    if(loading) return;
     setLoading(true);
     setError(null);
     setSuccess(false);

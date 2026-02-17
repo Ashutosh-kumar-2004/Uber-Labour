@@ -65,8 +65,12 @@ export const verifyWorker = async (req, res) => {
       return res.status(400).json({ message: "ID Card Image URL is required" });
     }
 
-    // Update User with Address and Contact Number
-    await User.findByIdAndUpdate(userId, { address, contactNumber });
+    // Update User with Address, Contact Number AND upgrade to worker role
+    await User.findByIdAndUpdate(userId, { 
+      address, 
+      contactNumber,
+      userType: "worker" 
+    });
 
     // Create or Update Worker Record
     // Check if worker record already exists for this user
@@ -107,20 +111,116 @@ export const verifyWorker = async (req, res) => {
   }
 };
 
+// export const acceptTask = async (req, res) => {
+//   try {
+//     const { taskId } = req.params;
+//     const userId = req.user.id;
+
+//     /* =========================
+//        WORKER VALIDATION
+//     ========================= */
+//     const worker = await Worker.findOne({
+//       userId,
+//       status: "verified"
+//     });
+
+//     if (!worker) {
+//       return res.status(403).json({
+//         success: false,
+//         message: "Worker not verified"
+//       });
+//     }
+
+//     // 1. Check Ban
+//     if (worker.banExpiresAt && new Date(worker.banExpiresAt) > new Date()) {
+//        return res.status(403).json({
+//          success: false,
+//          message: `You are banned until ${new Date(worker.banExpiresAt).toLocaleTimeString()}`
+//        });
+//     }
+
+//     // 2. Check Offline Status
+//     // If worker is offline, they can ONLY accept if they are "Busy" (have an active task).
+//     // If they are offline and have NO active task, it means they are manually offline -> Reject.
+//     if (!worker.isOnline) {
+//         const activeTask = await Task.findOne({
+//             assignedWorkerId: worker._id,
+//             status: { $in: ["assigned", "inProgress"] }
+//         });
+
+//         if (!activeTask) {
+//              return res.status(403).json({
+//                 success: false,
+//                 message: "You are offline. Go online to accept tasks."
+//              });
+//         }
+//         // If activeTask exists, they are "Busy", allow queueing.
+//     }
+
+//     /* =========================
+//        FIRST TAP WINS (ATOMIC)
+//     ========================= */
+//     const task = await Task.findOneAndUpdate(
+//       {
+//         _id: taskId,
+//         status: "broadcasting",
+//         scheduledStartAt: { $gte: new Date() }
+//       },
+//       {
+//         $set: {
+//           status: "assigned",
+//           assignedWorkerId: worker._id,
+//           acceptedAt: new Date()
+//         }
+//       },
+//       { new: true }
+//     );
+
+//     if (!task) {
+//       return res.status(409).json({
+//         success: false,
+//         message: "Task already taken or expired"
+//       });
+//     }
+
+//     /* =========================
+//        MARK WORKER BUSY
+//     ========================= */
+//     await Worker.findByIdAndUpdate(worker._id, {
+//       isOnline: false
+//     });
+
+//     /* =========================
+//        NOTIFICATIONS
+//     ========================= */
+//     await notifyTaskAccepted({
+//       taskId: task._id,
+//       winnerWorkerId: worker._id
+//     });
+
+//     /* =========================
+//        RESPONSE
+//     ========================= */
+//     return res.status(200).json({
+//       success: true,
+//       message: "Task accepted successfully",
+//       task
+//     });
+
+//   } catch (error) {
+//     console.error("Accept Task Error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//       error: error.message
+//     });
+//   }
+// };
+
 export const acceptTask = async (req, res) => {
   try {
     const { taskId } = req.params;
     const userId = req.user.id;
-
-    /* =========================
-       ROLE CHECK
-    ========================= */
-    if (req.user.userType !== "worker") {
-      return res.status(403).json({
-        success: false,
-        message: "Only workers can accept tasks"
-      });
-    }
 
     /* =========================
        WORKER VALIDATION
@@ -137,40 +237,41 @@ export const acceptTask = async (req, res) => {
       });
     }
 
-    // 1. Check Ban
+    // 1️⃣ Ban Check
     if (worker.banExpiresAt && new Date(worker.banExpiresAt) > new Date()) {
-       return res.status(403).json({
-         success: false,
-         message: `You are banned until ${new Date(worker.banExpiresAt).toLocaleTimeString()}`
-       });
+      return res.status(403).json({
+        success: false,
+        message: `You are banned until ${new Date(worker.banExpiresAt).toLocaleString()}`
+      });
     }
 
-    // 2. Check Offline Status
-    // If worker is offline, they can ONLY accept if they are "Busy" (have an active task).
-    // If they are offline and have NO active task, it means they are manually offline -> Reject.
+    // 2️⃣ Online / Busy Logic
     if (!worker.isOnline) {
-        const activeTask = await Task.findOne({
-            assignedWorkerId: worker._id,
-            status: { $in: ["assigned", "inProgress"] }
-        });
+      const activeTask = await Task.findOne({
+        assignedWorkerId: worker._id,
+        status: { $in: ["assigned", "inProgress"] }
+      });
 
-        if (!activeTask) {
-             return res.status(403).json({
-                success: false,
-                message: "You are offline. Go online to accept tasks."
-             });
-        }
-        // If activeTask exists, they are "Busy", allow queueing.
+      if (!activeTask) {
+        return res.status(403).json({
+          success: false,
+          message: "You are offline. Go online to accept tasks."
+        });
+      }
+      // If activeTask exists → worker is busy → allow queueing
     }
 
     /* =========================
        FIRST TAP WINS (ATOMIC)
+       ONLY CHECK:
+       - status
+       - expiresAt
     ========================= */
     const task = await Task.findOneAndUpdate(
       {
         _id: taskId,
         status: "broadcasting",
-        scheduledStartAt: { $gte: new Date() }
+        expiresAt: { $gte: new Date() }   // ✅ Correct expiry logic
       },
       {
         $set: {
@@ -205,7 +306,7 @@ export const acceptTask = async (req, res) => {
     });
 
     /* =========================
-       RESPONSE
+       SUCCESS RESPONSE
     ========================= */
     return res.status(200).json({
       success: true,
@@ -215,6 +316,7 @@ export const acceptTask = async (req, res) => {
 
   } catch (error) {
     console.error("Accept Task Error:", error);
+
     return res.status(500).json({
       success: false,
       message: "Server error",
@@ -222,7 +324,6 @@ export const acceptTask = async (req, res) => {
     });
   }
 };
-
 
 export const rejectTask = async (req, res) => {
   try {
@@ -233,12 +334,10 @@ export const rejectTask = async (req, res) => {
     /* =========================
        ROLE CHECK
     ========================= */
-    if (req.user.userType !== "worker") {
-      return res.status(403).json({
-        success: false,
-        message: "Only workers can reject tasks"
-      });
-    }
+    /* =========================
+       ROLE CHECK (REDUNDANT)
+    ========================= */
+    // Removed userType check
 
     /* =========================
        WORKER VALIDATION
@@ -347,16 +446,6 @@ export const completeTask = async (req, res) => {
     const userId = req.user.id;
 
     /* =========================
-       ROLE CHECK
-    ========================= */
-    if (req.user.userType !== "worker") {
-      return res.status(403).json({
-        success: false,
-        message: "Only workers can complete tasks"
-      });
-    }
-
-    /* =========================
        WORKER VALIDATION
     ========================= */
     const worker = await Worker.findOne({ userId });
@@ -429,12 +518,10 @@ export const setWorkerAvailability = async (req, res) => {
     /* =========================
        ROLE CHECK
     ========================= */
-    if (req.user.userType !== "worker") {
-      return res.status(403).json({
-        success: false,
-        message: "Only workers can update availability"
-      });
-    }
+    /* =========================
+       ROLE CHECK (REDUNDANT)
+    ========================= */
+    // Removed userType check
 
     /* =========================
        WORKER CHECK

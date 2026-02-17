@@ -8,6 +8,7 @@ const useAcceptTask = () => {
   const [acceptedTask, setAcceptedTask] = useState(null);
 
   const acceptTask = async (taskId) => {
+    if (loading) return;
     setLoading(true);
     setError(null);
     setSuccess(false);
@@ -16,7 +17,7 @@ const useAcceptTask = () => {
       const response = await axiosInstance.post(
         `/api/worker/tasks/${taskId}/accept`
       );
-
+      console.log(response);
       setSuccess(true);
       setAcceptedTask(response.data.task);
       return response.data;
@@ -24,6 +25,7 @@ const useAcceptTask = () => {
       const message =
         err.response?.data?.message || err.message || "Failed to accept task";
       setError(message);
+      console.log(message);
       throw err;
     } finally {
       setLoading(false);

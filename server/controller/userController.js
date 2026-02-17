@@ -58,6 +58,7 @@ export const createWork = async (req, res) => {
       subcategory,           // Schema: subcategory
       price: cost,           // Schema: price
       scheduledStartAt: scheduledDate, // Schema: scheduledStartAt (Date)
+      expiresAt: new Date(scheduledDate.getTime() + 3 * 24 * 60 * 60 * 1000), // +3 days
       availabilityTimeSlots, 
       
       contactNumber,
@@ -125,7 +126,7 @@ export const deleteWork = async (req, res) => {
     }
 
     // Check ownership
-    if (task.creatorId.toString() !== req.user._id.toString()) {
+    if (task.userId.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Not authorized to delete this task" });
     }
 
@@ -151,12 +152,60 @@ export const deleteWork = async (req, res) => {
 // Get all works created by the logged-in user
 export const getMyWorks = async (req, res) => {
   try {
-    const tasks = await Task.find({ creatorId: req.user._id }).sort({
+    const tasks = await Task.find({ userId: req.user._id }).sort({
       createdAt: -1,
     });
     res.status(200).json({ success: true, tasks });
   } catch (error) {
     console.error(error);
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+// Renew an expired or cancelled task
+export const renewTask = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const task = await Task.findById(id);
+
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    // Check ownership
+    if (task.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Not authorized to renew this task" });
+    }
+
+    // Only allow renewal if status is expired, cancelled, or broadcasting (to bump it up)
+    // Actually, user might want to renew a broadcasting task to bring it to top?
+    // But mainly for expired/cancelled.
+    
+    // Update scheduledStartAt to user provided date OR now
+    // Expect `newScheduledDate` in body, else default to NOW
+    const { newScheduledDate } = req.body;
+    const startDate = newScheduledDate ? new Date(newScheduledDate) : new Date();
+
+    if (isNaN(startDate.getTime())) {
+        return res.status(400).json({ message: "Invalid date format" });
+    }
+
+    task.scheduledStartAt = startDate;
+    task.expiresAt = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000); // +3 days
+    
+    task.status = "broadcasting";
+    task.assignedWorkerId = null; // Clear assignment if any
+    task.acceptedAt = null;
+    task.rejectedAt = null;
+    
+    await task.save();
+
+    res.status(200).json({ 
+        success: true, 
+        message: "Task renewed successfully",
+        task 
+    });
+  } catch (error) {
+    console.error("Renew Task Error:", error);
     res.status(500).json({ message: "Server Error" });
   }
 };
