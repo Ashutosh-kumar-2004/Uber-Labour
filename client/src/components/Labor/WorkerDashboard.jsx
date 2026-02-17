@@ -256,6 +256,7 @@ const WorkerDashboard = () => {
   // ... (Fetch tasks effect remains same) ...
   useEffect(() => {
     if (worker) {
+      setIsOnline(worker.isOnline); // Sync local state with DB
       if (worker.currentLocation) {
         const [lng, lat] = worker.currentLocation.coordinates;
         fetchTasks({ lat, lng, distance: selectedDistance });
@@ -270,6 +271,28 @@ const WorkerDashboard = () => {
   // If banned, show BannedScreen
   if (isBanned) {
     return <BannedScreen banExpiresAt={banExpiresAt} />;
+  }
+
+  // If not verified
+  if (worker && worker.status !== 'verified') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="bg-white p-8 rounded-3xl shadow-xl maxWidth-md text-center">
+          <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ShieldCheck className="text-yellow-600" size={40} />
+          </div>
+          <h2 className="text-2xl font-black uppercase tracking-tighter mb-2">Verification Pending</h2>
+          <p className="text-gray-500 font-medium">Your profile is currently under review or rejected.</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mt-4">Status: {worker.status}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-6 px-6 py-3 bg-black text-white rounded-xl font-bold uppercase tracking-widest hover:bg-zinc-800"
+          >
+            Refresh Status
+          </button>
+        </div>
+      </div>
+    )
   }
 
   const handleToggleAvailability = async () => {
@@ -294,9 +317,6 @@ const WorkerDashboard = () => {
     }
   };
 
-  // ... (rest of handlers) ...
-
-  // ... inside return ...
   const handleDistanceChange = (distance) => {
     setSelectedDistance(distance);
     setIsCustomDistance(false);
