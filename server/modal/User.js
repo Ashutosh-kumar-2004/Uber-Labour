@@ -60,6 +60,16 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    /* ── Penalty / Ban system ────────────────────────── */
+    walletBalance: {
+      type: Number,
+      default: 0,   // negative = in debt
+    },
+    banExpiresAt: {
+      type: Date,
+      default: null, // null = not banned
+    },
   },
   { timestamps: true },
 );

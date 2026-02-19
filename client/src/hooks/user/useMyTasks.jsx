@@ -5,11 +5,13 @@ const useMyTasks = () => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  /** banInfo: { banExpiresAt: Date, walletBalance: number } | null */
+  const [banInfo, setBanInfo] = useState(null);
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axiosInstance.get("/api/user/my-works"); // Fixed path
+      const response = await axiosInstance.get("/api/user/my-works");
       setTasks(response.data.tasks);
       setError(null);
     } catch (err) {
@@ -24,14 +26,32 @@ const useMyTasks = () => {
     fetchTasks();
   }, [fetchTasks]);
 
+  /**
+   * deleteTask — handles both normal delete and penalised cancel.
+   * Returns the server response data.
+   */
   const deleteTask = async (taskId) => {
-    if (!window.confirm("Are you sure you want to delete this task?")) return;
     try {
-      await axiosInstance.delete(`/api/user/delete/${taskId}`); // Fixed path
-      setTasks((prev) => prev.filter((t) => t._id !== taskId));
+      const { data } = await axiosInstance.delete(`/api/user/delete/${taskId}`);
+
+      if (data.penalised) {
+        // Task was cancelled (not hard-deleted) — update status in local state
+        setTasks((prev) =>
+          prev.map((t) => (t._id === taskId ? { ...t, status: "cancelled" } : t))
+        );
+        // Store ban info so Dashboard can show the ban screen
+        setBanInfo({
+          banExpiresAt: new Date(data.banExpiresAt),
+          walletBalance: data.walletBalance,
+        });
+      } else {
+        // Normal delete — remove from list
+        setTasks((prev) => prev.filter((t) => t._id !== taskId));
+      }
+      return data;
     } catch (err) {
       console.error("Error deleting task:", err);
-      alert(err.response?.data?.message || "Failed to delete task");
+      throw err;
     }
   };
 
@@ -39,24 +59,22 @@ const useMyTasks = () => {
     try {
       setLoading(true);
       const payload = newDate ? { newScheduledDate: newDate } : {};
-      const response = await axiosInstance.put(`/api/user/task/${taskId}/renew`, payload); // Fixed path with payload
-
-      // Update local state with renewed task
+      const response = await axiosInstance.put(`/api/user/task/${taskId}/renew`, payload);
       setTasks((prev) =>
         prev.map((t) => (t._id === taskId ? response.data.task : t))
       );
       alert("Task renewed successfully! It is now visible to workers again.");
     } catch (err) {
       console.error("Error renewing task:", err);
-      // Re-throw to let component handle UI feedback if needed, or keep alert
-      // The component (Dashboard) seems to handle errors via its own try-catch when calling this.
       throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  return { tasks, loading, error, deleteTask, renewTask, refetch: fetchTasks };
+  const clearBan = () => setBanInfo(null);
+
+  return { tasks, loading, error, deleteTask, renewTask, refetch: fetchTasks, banInfo, clearBan };
 };
 
 export default useMyTasks;

@@ -188,7 +188,6 @@ export const initSocketServer = (io) => {
 
     socket.on("disconnect", () => {
       lastUpdateAt.delete(socket.id);
-      console.log(`[Socket] Disconnected: socket=${socket.id}`);
     });
   });
 };

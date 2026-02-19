@@ -1,6 +1,12 @@
 import cloudinary from "../config/cloudinary.js";
 import Task from "../modal/user/Task.model.js";
+import User from "../modal/User.js";
 
+/** Statuses that mean a worker is actively assigned — cancelling costs a fine */
+const ACTIVE_STATUSES = new Set(["assigned", "inProgress", "arrived"]);
+
+const CANCELLATION_FINE = 100;     // ₹100
+const CANCELLATION_BAN_MS = 60 * 60 * 1000; // 60 minutes
 
 // Create a new task
 export const createWork = async (req, res) => {
@@ -123,24 +129,56 @@ export const deleteWork = async (req, res) => {
       return res.status(404).json({ message: "Task not found" });
     }
 
-    // Check ownership
+    // Ownership check
     if (task.userId.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Not authorized to delete this task" });
     }
 
-    // Delete images from Cloudinary
+    /* ==========================================================
+       PENALTY: task is actively assigned to a worker
+       → ₹100 fine + 60-min ban instead of hard delete
+    ========================================================== */
+    if (ACTIVE_STATUSES.has(task.status)) {
+      const banExpiresAt = new Date(Date.now() + CANCELLATION_BAN_MS);
+
+      // Apply fine & ban in one atomic update
+      const updatedUser = await User.findByIdAndUpdate(
+        req.user._id,
+        {
+          $inc: { walletBalance: -CANCELLATION_FINE }, // deduct ₹100
+          $set: { banExpiresAt },
+        },
+        { new: true }
+      );
+
+      // Cancel the task (keep it in DB for records, mark cancelled)
+      await Task.findByIdAndUpdate(id, {
+        status: "cancelled",
+        $unset: { assignedWorkerId: 1 },
+      });
+
+      return res.status(200).json({
+        success: true,
+        penalised: true,
+        message: `Task cancelled. A ₹${CANCELLATION_FINE} fine has been applied and you are banned for 60 minutes.`,
+        banExpiresAt,
+        walletBalance: updatedUser.walletBalance,
+      });
+    }
+
+    /* ==========================================================
+       NORMAL DELETE: task has no active worker
+    ========================================================== */
+    // Remove images from Cloudinary
     if (task.images && task.images.length > 0) {
       for (const imageUrl of task.images) {
         const publicId = getPublicIdFromUrl(imageUrl);
-        if (publicId) {
-          await cloudinary.uploader.destroy(publicId);
-        }
+        if (publicId) await cloudinary.uploader.destroy(publicId);
       }
     }
 
     await task.deleteOne();
-
-    res.status(200).json({ message: "Task deleted successfully" });
+    return res.status(200).json({ success: true, penalised: false, message: "Task deleted successfully" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server Error" });
