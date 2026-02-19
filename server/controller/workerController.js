@@ -306,6 +306,21 @@ export const acceptTask = async (req, res) => {
     });
 
     /* =========================
+       REAL-TIME: remove task from every other worker's dashboard
+    ========================= */
+    try {
+      const { getIO } = await import("../services/socket.service.js");
+      // Broadcast to all connected sockets — each worker's client
+      // listens for 'task_accepted' and removes that task from its list
+      getIO().emit("task_accepted", {
+        taskId: task._id.toString(),
+        acceptedByWorkerId: worker._id.toString()
+      });
+    } catch (_) {
+      // Socket not available — workers will just refresh on next poll
+    }
+
+    /* =========================
        SUCCESS RESPONSE
     ========================= */
     return res.status(200).json({
@@ -593,37 +608,20 @@ export const setWorkerAvailability = async (req, res) => {
 
 export const getAvailableTasks = async (req, res) => {
   try {
-    const { lat, lng, distance = 10, category } = req.query; // distance in km
+    const { lat, lng, distance = 10, category } = req.query;
 
     if (!lat || !lng) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Location (lat, lng) is required to find nearby tasks" 
+      return res.status(400).json({
+        success: false,
+        message: "Location (lat, lng) is required to find nearby tasks"
       });
     }
 
-    const radiusInRadians = distance / 6378.1; // Earth's radius in km
-
-    // Note: Ideally we check for worker ban here too if we want to hide tasks completely
-    // But usually we filter at the "accept" stage or let them see but not touch.
-    // However, if the user requested "show me the next nearby task still", we might let them see.
-    // But to be consistent with "banned", let's assume they shouldn't see tasks if banned? 
-    // Actually, usually you can see but not accept. 
-    // Let's stick to simple geo query for now, but maybe the UI handles the "Banned" view.
-    // The requirement was "show me the next nearby task still" (in previous context).
-    // So we don't strictly block fetching here, but we blocked acceptance. 
-    
-    // WAIT, if the worker is "Offline" due to ban (we set isOnline: false), then 
-    // getAvailableTasks is often called only if online. 
-    // But our frontend fetches if (isOnline || activeTask). 
-    // If banned, isOnline is false. ActiveTask is null (since they rejected).
-    // So frontend won't fetch. 
-    // We should allow fetching? No, if banned, you are punished.
-    
-    // Let's leave this as is.
+    const radiusInRadians = distance / 6378.1;
 
     const query = {
       status: "broadcasting",
+      expiresAt: { $gte: new Date() }, // ← never return expired tasks
       location: {
         $geoWithin: {
           $centerSphere: [[parseFloat(lng), parseFloat(lat)], radiusInRadians]
@@ -636,7 +634,7 @@ export const getAvailableTasks = async (req, res) => {
     }
 
     const tasks = await Task.find(query)
-      .populate("userId", "name avatar rating") // Populate creator details if needed
+      .populate("userId", "name avatar rating")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -654,3 +652,128 @@ export const getAvailableTasks = async (req, res) => {
     });
   }
 };
+
+/* ─────────────────────────────────────────────────────────────
+   HTTP FALLBACK: updateWorkerLocation
+   POST /api/worker/tasks/:taskId/location
+   Body: { lat, lng }
+   Used when socket is unavailable / as backup
+───────────────────────────────────────────────────────────── */
+const haversineKm = (lat1, lng1, lat2, lng2) => {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+const bearingDeg = (lat1, lng1, lat2, lng2) => {
+  const dL = ((lng2 - lng1) * Math.PI) / 180;
+  const rl1 = (lat1 * Math.PI) / 180;
+  const rl2 = (lat2 * Math.PI) / 180;
+  const y = Math.sin(dL) * Math.cos(rl2);
+  const x =
+    Math.cos(rl1) * Math.sin(rl2) - Math.sin(rl1) * Math.cos(rl2) * Math.cos(dL);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+};
+
+export const updateWorkerLocation = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { lat, lng } = req.body;
+    const userId = req.user.id;
+
+    const parsedLat = parseFloat(lat);
+    const parsedLng = parseFloat(lng);
+
+    if (
+      isNaN(parsedLat) || isNaN(parsedLng) ||
+      parsedLat < -90 || parsedLat > 90 ||
+      parsedLng < -180 || parsedLng > 180
+    ) {
+      return res.status(400).json({ success: false, message: "Invalid coordinates" });
+    }
+
+    const worker = await Worker.findOne({ userId });
+    if (!worker) {
+      return res.status(404).json({ success: false, message: "Worker not found" });
+    }
+
+    const task = await Task.findById(taskId);
+    if (!task) {
+      return res.status(404).json({ success: false, message: "Task not found" });
+    }
+
+    const now = Date.now();
+
+    /* Speed / bearing from previous location */
+    if (worker.workerLocation?.lat != null) {
+      const deltaKm = haversineKm(
+        worker.workerLocation.lat, worker.workerLocation.lng,
+        parsedLat, parsedLng
+      );
+      const deltaHr = (now - new Date(worker.workerLocation.updatedAt).getTime()) / 3600000;
+      worker.currentSpeed = deltaHr > 0 ? Math.round(deltaKm / deltaHr) : 0;
+      worker.currentBearing = Math.round(
+        bearingDeg(worker.workerLocation.lat, worker.workerLocation.lng, parsedLat, parsedLng)
+      );
+    }
+
+    worker.workerLocation = { lat: parsedLat, lng: parsedLng, updatedAt: new Date() };
+    worker.routeHistory.push({ lat: parsedLat, lng: parsedLng });
+    if (worker.routeHistory.length > 500) worker.routeHistory = worker.routeHistory.slice(-500);
+    worker.lastSeenAt = new Date();
+    await worker.save();
+
+    /* Check arrival */
+    let distanceKm = null;
+    let hasArrived = false;
+    if (task.location?.coordinates?.length === 2) {
+      const [destLng, destLat] = task.location.coordinates;
+      distanceKm = haversineKm(parsedLat, parsedLng, destLat, destLng);
+      if (distanceKm < 0.05 && task.status === "inProgress") {
+        task.status = "arrived";
+        task.arrivedAt = new Date();
+        await task.save();
+        hasArrived = true;
+      }
+    }
+
+    /* Emit to user room via Socket.IO */
+    try {
+      const { getIO } = await import("../services/socket.service.js");
+      getIO()
+        .to(`user:${task.userId.toString()}`)
+        .emit("live_location_update", {
+          taskId,
+          workerId: worker._id,
+          lat: parsedLat,
+          lng: parsedLng,
+          speed: worker.currentSpeed,
+          bearing: worker.currentBearing,
+          distanceKm: distanceKm ? parseFloat(distanceKm.toFixed(3)) : null,
+          hasArrived,
+          timestamp: now,
+        });
+    } catch (_) {
+      // Socket might not be available in test environments
+    }
+
+    return res.status(200).json({
+      success: true,
+      distanceKm: distanceKm ? parseFloat(distanceKm.toFixed(3)) : null,
+      hasArrived,
+      speed: worker.currentSpeed,
+      bearing: worker.currentBearing,
+    });
+
+  } catch (error) {
+    console.error("updateWorkerLocation Error:", error);
+    return res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+

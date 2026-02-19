@@ -40,41 +40,39 @@ export const createWork = async (req, res) => {
       }
     }
 
-    // Construct scheduledStartAt from availabilityDate and first time slot (if any)
-    // Defaulting to the date at 9 AM if no slot provided, or parsing simple logic
-    let scheduledDate = new Date(availabilityDate);
+    // Construct scheduledStartAt from availabilityDate and first time slot
+    // Use local noon as safe default to avoid midnight-UTC timezone issues
+    let scheduledDate = new Date(availabilityDate + "T09:00:00"); // default 9 AM local
     if (availabilityTimeSlots && availabilityTimeSlots.length > 0) {
-        // time slot format "8-10", "10-12"
-        const startHour = parseInt(availabilityTimeSlots[0].split('-')[0]);
-        scheduledDate.setHours(startHour, 0, 0, 0);
+      const startHour = parseInt(availabilityTimeSlots[0].split("-")[0], 10);
+      scheduledDate = new Date(availabilityDate + `T${String(startHour).padStart(2, "0")}:00:00`);
     }
+
+    const now = new Date();
+    // expiresAt is always 3 days from CREATION TIME (now), not from scheduledDate
+    // This prevents tasks with past/midnight scheduledDate from immediately expiring
+    const expiresAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
 
     // Create the task
     const task = new Task({
-      userId: req.user._id, // Schema: userId
-      title: taskTitle,      // Schema: title
+      userId: req.user._id,
+      title: taskTitle,
       description,
-      taskType: category,    // Schema: taskType
-      subcategory,           // Schema: subcategory
-      price: cost,           // Schema: price
-      scheduledStartAt: scheduledDate, // Schema: scheduledStartAt (Date)
-      expiresAt: new Date(scheduledDate.getTime() + 3 * 24 * 60 * 60 * 1000), // +3 days
-      availabilityTimeSlots, 
-      
+      taskType: category,
+      subcategory,
+      price: cost,
+      scheduledStartAt: scheduledDate,
+      expiresAt,                         // ← 3 days from now (creation time)
+      availabilityTimeSlots,
       contactNumber,
       alternateContactNumber,
       address,
       images: imageUrls,
-
       location: {
         type: "Point",
         coordinates: [parseFloat(location.lng), parseFloat(location.lat)],
       },
     });
-    
-    // NOTE: Sending extra fields (images, contact) that are not in schema will be ignored.
-    // If the user wants to save images/contact, we MUST update Task.model.js.
-    // Given the error was validation failure on required fields, priority 1 is fixing that.
 
     await task.save();
 

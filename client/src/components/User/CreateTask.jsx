@@ -138,9 +138,8 @@ export default function CreateTask({ onClose }) {
   };
 
   const { createWork, loading, error, success } = useCreateWork();
-  // state.user.user contains the login response { user, token }
-  const fullUser = useSelector((state) => state.user.user);
-  const token = fullUser?.token;
+  /* Token is now stored directly at state.user.token (Redux refactor) */
+  const token = useSelector((state) => state.user.token);
 
   useEffect(() => {
     if (success) {
@@ -158,9 +157,9 @@ export default function CreateTask({ onClose }) {
     }
 
     try {
-      await createWork(formData, token);
+      /* token is injected automatically by axiosInstance interceptor from Redux */
+      await createWork(formData);
     } catch (err) {
-      // Error handled in hook and error state
       console.error(err);
     }
   };
@@ -431,11 +430,10 @@ export default function CreateTask({ onClose }) {
                       key={slot.value}
                       type="button"
                       onClick={() => toggleSlot(slot.value)}
-                      className={`px-4 py-2 rounded-full border border-gray-300/50 text-sm cursor-pointer backdrop-blur-sm transition-all duration-300 ${
-                        formData.availabilityTimeSlots.includes(slot.value)
+                      className={`px-4 py-2 rounded-full border border-gray-300/50 text-sm cursor-pointer backdrop-blur-sm transition-all duration-300 ${formData.availabilityTimeSlots.includes(slot.value)
                           ? "bg-gradient-to-r from-gray-900 to-gray-700 text-white shadow-lg"
                           : "bg-white/50 hover:bg-white/70"
-                      }`}
+                        }`}
                     >
                       {slot.label}
                     </button>

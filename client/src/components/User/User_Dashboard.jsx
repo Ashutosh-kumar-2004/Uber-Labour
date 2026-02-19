@@ -26,7 +26,10 @@ const Dashboard = () => {
   const dispatch = useDispatch();
   const location = useSelector((state) => state.user.location);
 
-  /* LOCATE ME HANDLER (Returns location for chaining) */
+  /* Lift task state here so we can refetch after task creation */
+  const { tasks, loading, error, deleteTask, renewTask, refetch } = useMyTasks();
+
+  /* LOCATE ME HANDLER */
   const handleLocateMe = async () => {
     setLoadingLocation(true);
     try {
@@ -58,6 +61,12 @@ const Dashboard = () => {
     } else {
       setIsLocationModalOpen(true);
     }
+  };
+
+  /* Close CreateTask and immediately re-fetch task list */
+  const handleCreateTaskClose = () => {
+    setIsCreateTaskOpen(false);
+    refetch(); // pull fresh list so the new task appears
   };
 
   const categories = [
@@ -216,7 +225,14 @@ const Dashboard = () => {
           <h2 className="text-3xl font-black mb-8 uppercase tracking-tighter">
             My Posted Tasks
           </h2>
-          <MyTasksSection />
+          <MyTasksSection
+            tasks={tasks}
+            loading={loading}
+            error={error}
+            deleteTask={deleteTask}
+            renewTask={renewTask}
+            refetch={refetch}
+          />
         </div>
       </main>
 
@@ -253,7 +269,7 @@ const Dashboard = () => {
       {isCreateTaskOpen && (
         <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center">
           <div className="w-full h-full">
-            <CreateTask onClose={() => setIsCreateTaskOpen(false)} />
+            <CreateTask onClose={handleCreateTaskClose} />
           </div>
         </div>
       )}
@@ -261,8 +277,7 @@ const Dashboard = () => {
   );
 };
 
-const MyTasksSection = () => {
-  const { tasks, loading, error, deleteTask, renewTask, refetch } = useMyTasks();
+const MyTasksSection = ({ tasks, loading, error, deleteTask, renewTask, refetch }) => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [errorModal, setErrorModal] = useState({ isOpen: false, message: "" });
 
@@ -326,10 +341,11 @@ const MyTasksSection = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
         {tasks.map((task) => {
-          // Expiration Logic: Match logic in TaskDetailsModal
-          const isExpired = task.status === "expired" ||
-            (task.expiresAt && new Date(task.expiresAt) < new Date()) ||
-            (!task.expiresAt && task.status === "broadcasting" && new Date(task.scheduledStartAt) < new Date());
+          // A task is expired when the server marks it so, or its expiry window has passed.
+          // Do NOT compare scheduledStartAt — that's the appointment time, not the expiry.
+          const isExpired =
+            task.status === "expired" ||
+            (task.expiresAt && new Date(task.expiresAt) < new Date());
 
           return (
             <div

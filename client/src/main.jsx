@@ -4,13 +4,17 @@ import App from "./App.jsx";
 import { Provider } from "react-redux";
 import store from "./redux/store.jsx";
 import { AuthProvider } from "./components/context/AuthContext.jsx";
+import { SocketProvider } from "./context/SocketContext.jsx";
 
 createRoot(document.getElementById("root")).render(
   <Provider store={store}>
     <BrowserRouter>
       <AuthProvider>
-        <App />
+        <SocketProvider>
+          <App />
+        </SocketProvider>
       </AuthProvider>
     </BrowserRouter>
   </Provider>,
 );
+

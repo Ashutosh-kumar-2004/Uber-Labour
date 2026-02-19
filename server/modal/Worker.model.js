@@ -77,7 +77,22 @@ const workerSchema = new mongoose.Schema(
   outstandingFines: {
     type: Number,
     default: 0
-  }
+  },
+
+  /* ── Real-Time Tracking ───────────────────── */
+  workerLocation: {
+    lat: { type: Number, default: null },
+    lng: { type: Number, default: null },
+    updatedAt: { type: Date, default: null }
+  },
+  routeHistory: [{
+    lat: Number,
+    lng: Number,
+    timestamp: { type: Date, default: Date.now }
+  }],
+  currentSpeed: { type: Number, default: 0 },    // km/h
+  currentBearing: { type: Number, default: 0 },   // degrees (0 = North, CW)
+  lastSeenAt: { type: Date, default: null }
 }, { timestamps: true });
 workerSchema.index({ "currentLocation": "2dsphere" });
 workerSchema.index({ isOnline: 1, "services.category": 1 });

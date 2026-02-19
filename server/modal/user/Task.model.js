@@ -109,12 +109,18 @@ const taskSchema = new mongoose.Schema(
         "broadcasting", // visible to workers
         "assigned",     // first worker accepted
         "inProgress",   // task started
+        "arrived",      // worker within 50m of destination
         "completed",
         "expired",      // not accepted before start (legacy/manual)
         "cancelled"
       ],
       default: "broadcasting",
       index: true
+    },
+
+    arrivedAt: {
+      type: Date,
+      default: null
     },
     
     // Automatic Expiration

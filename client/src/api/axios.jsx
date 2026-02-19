@@ -1,21 +1,22 @@
 import axios from "axios";
+import store from "../redux/store.jsx";
 
 const axiosInstance = axios.create({
-  baseURL: "http://localhost:5000",
+  baseURL: import.meta.env.VITE_API_URL,
   withCredentials: true,
 });
 
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token"); // Assuming token is stored in localStorage
+    /* Read JWT from Redux state — no localStorage needed */
+    const token = store.getState().user.token;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 export default axiosInstance;
+

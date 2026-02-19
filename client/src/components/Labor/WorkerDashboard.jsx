@@ -6,6 +6,8 @@ import useAcceptTask from "../../hooks/worker/useAcceptTask";
 import useCompleteTask from "../../hooks/worker/useCompleteTask";
 import useRejectTask from "../../hooks/worker/useRejectTask";
 import TaskDetailsModal from './TaskDetailsModal';
+import WorkerNavigationMap from './WorkerNavigationMap';
+import useLocationBroadcast, { bearingToLabel } from "../../hooks/worker/useLocationBroadcast";
 import { DISTANCE_OPTIONS } from "../../constants/task.constants";
 import {
   Briefcase,
@@ -24,7 +26,8 @@ import {
   Map as MapIcon,
   ShieldCheck,
   Zap,
-  IndianRupee
+  IndianRupee,
+  Compass
 } from 'lucide-react';
 
 const ErrorModal = ({ error, onClose }) => {
@@ -253,6 +256,11 @@ const WorkerDashboard = () => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showBanModal, setShowBanModal] = useState(false);
+  const [showNavMap, setShowNavMap] = useState(false);
+
+  // ── Real-time GPS tracking (active only when task exists) ──
+  const { isTracking, speed, bearing, workerCoords, routePath } =
+    useLocationBroadcast(activeTask?._id || null);
   // ... (Fetch tasks effect remains same) ...
   useEffect(() => {
     if (worker) {
@@ -479,26 +487,50 @@ const WorkerDashboard = () => {
 
       <main className="max-w-6xl mx-auto w-full p-6 space-y-8">
 
+        {/* ── Worker Navigation Map overlay ──────────────────────── */}
+        {showNavMap && activeTask && (
+          <WorkerNavigationMap
+            task={activeTask}
+            workerCoords={workerCoords}
+            routePath={routePath}
+            speed={speed}
+            bearing={bearing}
+            isTracking={isTracking}
+            onClose={() => setShowNavMap(false)}
+          />
+        )}
+
         {/* ACTIVE TASK CARD */}
         {activeTask && (
           <div className="bg-black text-white rounded-3xl p-8 relative overflow-hidden shadow-2xl animate-fade-in-up">
-            {/* ... Background Blobs ... */}
+            {/* Background Blobs */}
             <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-green-500/20 rounded-full blur-3xl animate-pulse"></div>
             <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
 
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-8">
-                {/* Header */}
+              {/* Header row */}
+              <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3 bg-zinc-900/80 backdrop-blur-sm p-2 pr-4 rounded-full border border-zinc-800">
                   <div className="bg-green-500 p-1.5 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]">
                     <Zap size={14} fill="currentColor" className="text-white" />
                   </div>
                   <span className="text-[10px] font-black uppercase tracking-widest text-green-400">In Progress</span>
                 </div>
+
+                {/* ── Tracking Active badge ── */}
+                {isTracking && (
+                  <div className="flex items-center gap-2 bg-orange-500/10 border border-orange-500/20 px-3 py-1.5 rounded-full">
+                    <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse"></span>
+                    <Navigation size={12} className="text-orange-400" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-orange-400">
+                      {speed} km/h · {bearingToLabel(bearing)}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Title & Address */}
-              <div className="mb-8">
+              <div className="mb-6">
                 <h3 className="text-3xl font-black uppercase tracking-tighter mb-2">{activeTask.title}</h3>
                 <div className="flex items-center gap-2 text-gray-400">
                   <MapIcon size={16} />
@@ -507,7 +539,7 @@ const WorkerDashboard = () => {
               </div>
 
               {/* Metrics */}
-              <div className="grid grid-cols-2 gap-4 mb-8">
+              <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
                   <div className="flex items-center gap-2 text-gray-400 mb-1">
                     <IndianRupee size={14} />
@@ -524,7 +556,18 @@ const WorkerDashboard = () => {
                 </div>
               </div>
 
-              <div className="flex gap-4">
+              {/* Action buttons */}
+              <div className="flex gap-3">
+                {/* ── Start Navigation ─────────────────── */}
+                <button
+                  onClick={() => setShowNavMap(true)}
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-4 rounded-2xl font-black uppercase tracking-widest transition-all active:scale-[0.98] shadow-lg hover:shadow-blue-600/30"
+                >
+                  <Compass size={18} />
+                  <span className="text-xs">Navigate</span>
+                </button>
+
+                {/* Complete */}
                 <button
                   onClick={handleCompleteTask}
                   disabled={completeLoading}
@@ -533,26 +576,26 @@ const WorkerDashboard = () => {
                   {completeLoading ? "Completing..." : (
                     <>
                       <CheckCircle size={20} className="group-hover:scale-110 transition-transform" />
-                      <span>Complete Job</span>
+                      <span>Complete</span>
                     </>
                   )}
                 </button>
 
-                {/* Details Button */}
+                {/* Details */}
                 <button
-                  className="bg-zinc-800 text-white px-6 rounded-2xl hover:bg-zinc-700 transition-all active:scale-[0.98] border border-zinc-700 hover:border-zinc-600 shadow-lg"
+                  className="bg-zinc-800 text-white px-5 rounded-2xl hover:bg-zinc-700 transition-all active:scale-[0.98] border border-zinc-700"
                   onClick={() => setSelectedTask(activeTask)}
                 >
-                  <ArrowUpRight size={24} />
+                  <ArrowUpRight size={22} />
                 </button>
 
-                {/* Reject Button (Small X or Text) */}
+                {/* Reject */}
                 <button
                   onClick={() => setShowBanModal(true)}
                   className="bg-red-500/10 text-red-500 px-4 rounded-2xl hover:bg-red-500 hover:text-white transition-all active:scale-[0.98] border border-red-500/20 hover:border-red-500"
                   title="Reject Task"
                 >
-                  <X size={24} />
+                  <X size={22} />
                 </button>
               </div>
             </div>

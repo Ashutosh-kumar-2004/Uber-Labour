@@ -11,28 +11,22 @@ const useFetchMyWorks = () => {
   const dispatch = useDispatch();
   const { works, loading, error } = useSelector((state) => state.userWorks);
 
-  const fetchMyWorks = useCallback(
-    async (token) => {
-      dispatch(fetchWorksStart());
-      try {
-        const config = {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        };
-        const response = await axiosInstance.get("/api/user/my-works", config);
-        dispatch(fetchWorksSuccess(response.data.tasks));
-      } catch (err) {
-        const message =
-          err.response?.data?.message || err.message || "Failed to fetch works";
-        dispatch(fetchWorksFailure(message));
-        console.error("Fetch works error:", err);
-      }
-    },
-    [dispatch],
-  );
+  /* Token is injected by axiosInstance interceptor from Redux — no need to pass it */
+  const fetchMyWorks = useCallback(async () => {
+    dispatch(fetchWorksStart());
+    try {
+      const response = await axiosInstance.get("/api/user/my-works");
+      dispatch(fetchWorksSuccess(response.data.tasks));
+    } catch (err) {
+      const message =
+        err.response?.data?.message || err.message || "Failed to fetch works";
+      dispatch(fetchWorksFailure(message));
+      console.error("Fetch works error:", err);
+    }
+  }, [dispatch]);
 
   return { fetchMyWorks, works, loading, error };
 };
 
 export default useFetchMyWorks;
+
