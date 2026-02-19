@@ -122,6 +122,24 @@ const taskSchema = new mongoose.Schema(
       type: Date,
       default: null
     },
+
+    /* =======================
+       OTP (ARRIVAL VERIFICATION)
+       Worker taps "Arrived" → OTP emailed to user → worker types it
+    ======================= */
+    otp: {
+      type: String,    // stored as plain 4-digit code (not exposed to client)
+      select: false,   // never returned in normal queries
+      default: null,
+    },
+    otpExpiresAt: {
+      type: Date,
+      default: null,
+    },
+    otpVerifiedAt: {
+      type: Date,
+      default: null,   // set when worker correctly submits OTP
+    },
     
     // Automatic Expiration
     expiresAt: {

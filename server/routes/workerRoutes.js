@@ -8,6 +8,8 @@ import {
   getWorkerProfile,
   getAvailableTasks,
   updateWorkerLocation,
+  markArrived,
+  verifyOTP,
 } from "../controller/workerController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -24,6 +26,8 @@ router.post("/tasks/:taskId/accept", acceptTask);
 router.post("/tasks/:taskId/reject", rejectTask);
 router.post("/tasks/:taskId/complete", completeTask);
 router.post("/tasks/:taskId/location", updateWorkerLocation);
+router.post("/tasks/:taskId/arrived", markArrived);    // worker taps "I've Arrived"
+router.post("/tasks/:taskId/verify-otp", verifyOTP);   // worker submits OTP from user
 
 export default router;
 

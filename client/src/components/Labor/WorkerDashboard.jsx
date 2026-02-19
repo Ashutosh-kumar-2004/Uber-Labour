@@ -5,6 +5,7 @@ import useAvailableTasks from "../../hooks/worker/useAvailableTasks";
 import useAcceptTask from "../../hooks/worker/useAcceptTask";
 import useCompleteTask from "../../hooks/worker/useCompleteTask";
 import useRejectTask from "../../hooks/worker/useRejectTask";
+import useOTPActions from "../../hooks/worker/useOTPActions";
 import TaskDetailsModal from './TaskDetailsModal';
 import WorkerNavigationMap from './WorkerNavigationMap';
 import useLocationBroadcast, { bearingToLabel } from "../../hooks/worker/useLocationBroadcast";
@@ -248,7 +249,6 @@ const WorkerDashboard = () => {
   const { completeTask, loading: completeLoading, error: completeError } = useCompleteTask();
   const { rejectTask, loading: rejectLoading, error: rejectError } = useRejectTask();
 
-  // ... state ...
   const [isOnline, setIsOnline] = useState(false);
   const [selectedDistance, setSelectedDistance] = useState(10);
   const [customDistance, setCustomDistance] = useState("");
@@ -257,6 +257,11 @@ const WorkerDashboard = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showBanModal, setShowBanModal] = useState(false);
   const [showNavMap, setShowNavMap] = useState(false);
+  // OTP state
+  const [otpInput, setOtpInput] = useState("");
+  const [otpError, setOtpError] = useState(null);
+  const [otpSuccess, setOtpSuccess] = useState(false);
+  const { markArrived, submitOTP, arrivedLoading, otpLoading } = useOTPActions();
 
   // ── Real-time GPS tracking (active only when task exists) ──
   const { isTracking, speed, bearing, workerCoords, routePath } =
@@ -399,10 +404,42 @@ const WorkerDashboard = () => {
     try {
       await rejectTask(activeTask._id, reason);
       setShowBanModal(false);
-      await refetchProfile(); // Will update worker ban status and clear activeTask
+      await refetchProfile();
     } catch (err) {
       console.error(err);
       alert("Failed to reject task: " + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleMarkArrived = async () => {
+    if (!activeTask) return;
+    try {
+      await markArrived(activeTask._id);
+      // Refetch to get updated task.status = 'arrived'
+      await refetchProfile();
+      setOtpInput("");
+      setOtpError(null);
+    } catch (err) {
+      alert("Failed to mark arrival: " + err.message);
+    }
+  };
+
+  const handleSubmitOTP = async () => {
+    if (!activeTask || otpInput.trim().length !== 4) {
+      setOtpError("Please enter the 4-digit code.");
+      return;
+    }
+    setOtpError(null);
+    try {
+      await submitOTP(activeTask._id, otpInput.trim());
+      setOtpSuccess(true);
+      await refetchProfile(); // updates task to inProgress
+    } catch (err) {
+      if (err.expired) {
+        setOtpError("⏱ Code expired. Tap \"I've Arrived\" again to resend.");
+      } else {
+        setOtpError(err.message || "Incorrect code. Try again.");
+      }
     }
   };
 
@@ -556,48 +593,136 @@ const WorkerDashboard = () => {
                 </div>
               </div>
 
-              {/* Action buttons */}
-              <div className="flex gap-3">
-                {/* ── Start Navigation ─────────────────── */}
-                <button
-                  onClick={() => setShowNavMap(true)}
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-4 rounded-2xl font-black uppercase tracking-widest transition-all active:scale-[0.98] shadow-lg hover:shadow-blue-600/30"
-                >
-                  <Compass size={18} />
-                  <span className="text-xs">Navigate</span>
-                </button>
+              {/* ─── STATUS-AWARE ACTION AREA ─────────────────────────── */}
 
-                {/* Complete */}
-                <button
-                  onClick={handleCompleteTask}
-                  disabled={completeLoading}
-                  className="flex-1 bg-white text-black py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition-all active:scale-[0.98] shadow-lg flex items-center justify-center gap-2 group disabled:opacity-70"
-                >
-                  {completeLoading ? "Completing..." : (
-                    <>
-                      <CheckCircle size={20} className="group-hover:scale-110 transition-transform" />
-                      <span>Complete</span>
-                    </>
+              {/* ASSIGNED: Show "I've Arrived" button */}
+              {activeTask.status === "assigned" && (
+                <div className="mt-2">
+                  <button
+                    onClick={handleMarkArrived}
+                    disabled={arrivedLoading}
+                    className="w-full py-4 rounded-2xl font-black uppercase tracking-widest transition-all active:scale-[0.98] shadow-lg flex items-center justify-center gap-2 bg-green-500 hover:bg-green-400 text-white disabled:opacity-60"
+                  >
+                    {arrivedLoading ? (
+                      <span className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
+                    ) : (
+                      <>
+                        <MapPin size={18} />
+                        <span>I've Arrived</span>
+                      </>
+                    )}
+                  </button>
+                  <p className="text-center text-gray-500 text-xs mt-2">Tap when you reach the job location. An OTP will be sent to the client's email.</p>
+                </div>
+              )}
+
+              {/* ARRIVED: Show OTP input */}
+              {activeTask.status === "arrived" && (
+                <div className="mt-2 bg-zinc-900/70 rounded-2xl border border-zinc-700 p-5">
+                  <p className="text-xs font-black uppercase tracking-widest text-green-400 mb-1">OTP sent to client’s email</p>
+                  <p className="text-gray-400 text-xs mb-4">Ask the client for the 4-digit code and enter it below to start the task.</p>
+
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={otpInput}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+                      setOtpInput(v);
+                      setOtpError(null);
+                    }}
+                    placeholder="• • • •"
+                    className="w-full text-center text-3xl font-black tracking-[0.5em] bg-white/5 border border-zinc-600 rounded-xl px-4 py-4 text-white placeholder:text-zinc-600 focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400 mb-3"
+                  />
+
+                  {otpError && (
+                    <p className="text-red-400 text-xs text-center mb-3 font-bold">{otpError}</p>
                   )}
-                </button>
 
-                {/* Details */}
-                <button
-                  className="bg-zinc-800 text-white px-5 rounded-2xl hover:bg-zinc-700 transition-all active:scale-[0.98] border border-zinc-700"
-                  onClick={() => setSelectedTask(activeTask)}
-                >
-                  <ArrowUpRight size={22} />
-                </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleMarkArrived}
+                      disabled={arrivedLoading}
+                      className="px-4 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-gray-300 text-xs font-bold uppercase tracking-widest border border-zinc-700 disabled:opacity-50"
+                      title="Resend OTP"
+                    >
+                      {arrivedLoading ? "↻" : "↻ Resend"}
+                    </button>
+                    <button
+                      onClick={handleSubmitOTP}
+                      disabled={otpLoading || otpInput.length !== 4}
+                      className="flex-1 bg-green-500 hover:bg-green-400 text-white py-3 rounded-xl font-black uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-50"
+                    >
+                      {otpLoading ? "Verifying…" : "✔ Verify & Start"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
-                {/* Reject */}
-                <button
-                  onClick={() => setShowBanModal(true)}
-                  className="bg-red-500/10 text-red-500 px-4 rounded-2xl hover:bg-red-500 hover:text-white transition-all active:scale-[0.98] border border-red-500/20 hover:border-red-500"
-                  title="Reject Task"
-                >
-                  <X size={22} />
-                </button>
-              </div>
+              {/* IN PROGRESS: Navigate + Complete + Details + Reject */}
+              {(activeTask.status === "inProgress" || (!activeTask.status)) && (
+                <div className="flex gap-3">
+                  {/* Navigate */}
+                  <button
+                    onClick={() => setShowNavMap(true)}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-4 rounded-2xl font-black uppercase tracking-widest transition-all active:scale-[0.98] shadow-lg hover:shadow-blue-600/30"
+                  >
+                    <Compass size={18} />
+                    <span className="text-xs">Navigate</span>
+                  </button>
+
+                  {/* Complete */}
+                  <button
+                    onClick={handleCompleteTask}
+                    disabled={completeLoading}
+                    className="flex-1 bg-white text-black py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition-all active:scale-[0.98] shadow-lg flex items-center justify-center gap-2 group disabled:opacity-70"
+                  >
+                    {completeLoading ? "Completing..." : (
+                      <>
+                        <CheckCircle size={20} className="group-hover:scale-110 transition-transform" />
+                        <span>Complete</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Details */}
+                  <button
+                    className="bg-zinc-800 text-white px-5 rounded-2xl hover:bg-zinc-700 transition-all active:scale-[0.98] border border-zinc-700"
+                    onClick={() => setSelectedTask(activeTask)}
+                  >
+                    <ArrowUpRight size={22} />
+                  </button>
+
+                  {/* Reject */}
+                  <button
+                    onClick={() => setShowBanModal(true)}
+                    className="bg-red-500/10 text-red-500 px-4 rounded-2xl hover:bg-red-500 hover:text-white transition-all active:scale-[0.98] border border-red-500/20 hover:border-red-500"
+                    title="Reject Task"
+                  >
+                    <X size={22} />
+                  </button>
+                </div>
+              )}
+
+              {/* ASSIGNED / ARRIVED: also show Details  + Reject below the main action */}
+              {(activeTask.status === "assigned" || activeTask.status === "arrived") && (
+                <div className="flex gap-2 mt-3">
+                  <button
+                    className="flex-1 bg-zinc-800 text-white py-3 rounded-2xl hover:bg-zinc-700 transition-all border border-zinc-700 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest"
+                    onClick={() => setSelectedTask(activeTask)}
+                  >
+                    <ArrowUpRight size={16} /> Details
+                  </button>
+                  <button
+                    onClick={() => setShowBanModal(true)}
+                    className="bg-red-500/10 text-red-500 px-5 rounded-2xl hover:bg-red-500 hover:text-white transition-all active:scale-[0.98] border border-red-500/20 hover:border-red-500"
+                    title="Reject Task"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

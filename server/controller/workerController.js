@@ -776,4 +776,156 @@ export const updateWorkerLocation = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
+// =============================================================
+//  MARK ARRIVED — worker announces arrival (manual, not GPS)
+//  1. Generates 4-digit OTP
+//  2. Saves it on the Task (field is select:false)
+//  3. Emails OTP to the job-poster via Nodemailer
+//  4. Sets task.status = "arrived"
+// =============================================================
+export const markArrived = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user._id;
 
+    // Resolve worker
+    const worker = await Worker.findOne({ userId });
+    if (!worker) return res.status(404).json({ message: "Worker profile not found" });
+
+    // Fetch task with OTP fields (select: false overridden here explicitly)
+    const task = await Task.findById(taskId).select("+otp +otpExpiresAt");
+    if (!task) return res.status(404).json({ message: "Task not found" });
+
+    // Authorisation: must be the assigned worker
+    if (!task.assignedWorkerId || task.assignedWorkerId.toString() !== worker._id.toString()) {
+      return res.status(403).json({ message: "Not authorised for this task" });
+    }
+
+    // Must be in 'assigned' status to mark arrived
+    if (task.status !== "assigned") {
+      return res.status(400).json({
+        message: `Cannot mark arrived when task status is '${task.status}'`,
+      });
+    }
+
+    // Generate 4-digit OTP
+    const otp = String(Math.floor(1000 + Math.random() * 9000));
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Persist OTP + status change
+    task.otp = otp;
+    task.otpExpiresAt = otpExpiresAt;
+    task.status = "arrived";
+    task.arrivedAt = new Date();
+    await task.save();
+
+    // Fetch the job-poster's email and name
+    const jobPoster = await User.findById(task.userId).select("email name");
+    if (!jobPoster) {
+      return res.status(404).json({ message: "Job poster user not found" });
+    }
+
+    // Send OTP email
+    try {
+      const { sendOTPEmail } = await import("../services/email.service.js");
+      await sendOTPEmail({
+        toEmail:    jobPoster.email,
+        userName:   jobPoster.name,
+        otp,
+        taskTitle:  task.title,
+        workerName: worker.userId?.name || "Your worker",
+      });
+      console.log(`[OTP] Sent to ${jobPoster.email} for task ${task._id}`);
+    } catch (mailErr) {
+      console.error("[OTP] Email send failed:", mailErr.message);
+      // Do NOT fail the request — task status is already updated
+    }
+
+    // Emit socket update
+    try {
+      const { getIO } = await import("../services/socket.service.js");
+      getIO().to(`user:${task.userId.toString()}`).emit("task_arrived", {
+        taskId: task._id.toString(),
+        workerId: worker._id.toString(),
+      });
+    } catch (_) {}
+
+    return res.status(200).json({
+      success: true,
+      message: "Arrival recorded. OTP sent to the job poster's email.",
+      otpExpiresAt,
+    });
+  } catch (error) {
+    console.error("markArrived Error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// =============================================================
+//  VERIFY OTP — worker submits the code shown by the user
+//  On success: task.status → 'inProgress'
+// =============================================================
+export const verifyOTP = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { otp } = req.body;
+    const userId = req.user._id;
+
+    if (!otp) return res.status(400).json({ message: "OTP is required" });
+
+    const worker = await Worker.findOne({ userId });
+    if (!worker) return res.status(404).json({ message: "Worker profile not found" });
+
+    // Must fetch OTP (select: false)
+    const task = await Task.findById(taskId).select("+otp +otpExpiresAt +otpVerifiedAt");
+    if (!task) return res.status(404).json({ message: "Task not found" });
+
+    // Authorisation
+    if (!task.assignedWorkerId || task.assignedWorkerId.toString() !== worker._id.toString()) {
+      return res.status(403).json({ message: "Not authorised for this task" });
+    }
+
+    // Must be in 'arrived' status
+    if (task.status !== "arrived") {
+      return res.status(400).json({ message: `Task is not in 'arrived' state (currently '${task.status}')` });
+    }
+
+    // Expiry check
+    if (!task.otpExpiresAt || new Date() > new Date(task.otpExpiresAt)) {
+      return res.status(400).json({
+        success: false,
+        expired: true,
+        message: "OTP has expired. Please tap \"I've Arrived\" again to get a new code.",
+      });
+    }
+
+    // Code match
+    if (task.otp !== otp.trim()) {
+      return res.status(400).json({ success: false, message: "Incorrect OTP. Please try again." });
+    }
+
+    // OTP verified — start the task
+    task.status = "inProgress";
+    task.otpVerifiedAt = new Date();
+    task.otp = null;            // invalidate code
+    task.otpExpiresAt = null;
+    await task.save();
+
+    // Emit socket update to user
+    try {
+      const { getIO } = await import("../services/socket.service.js");
+      getIO().to(`user:${task.userId.toString()}`).emit("task_started", {
+        taskId: task._id.toString(),
+        workerId: worker._id.toString(),
+      });
+    } catch (_) {}
+
+    return res.status(200).json({
+      success: true,
+      message: "OTP verified! Task is now In Progress.",
+    });
+  } catch (error) {
+    console.error("verifyOTP Error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
