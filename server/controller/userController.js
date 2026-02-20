@@ -1,6 +1,9 @@
 import cloudinary from "../config/cloudinary.js";
 import Task from "../modal/user/Task.model.js";
 import User from "../modal/User.js";
+import Worker from "../modal/Worker.model.js";
+import Review from "../modal/Review.model.js";
+import Report from "../modal/Report.model.js";
 
 /** Statuses that mean a worker is actively assigned — cancelling costs a fine */
 const ACTIVE_STATUSES = new Set(["assigned", "inProgress", "arrived"]);
@@ -243,5 +246,146 @@ export const renewTask = async (req, res) => {
   } catch (error) {
     console.error("Renew Task Error:", error);
     res.status(500).json({ message: "Server Error" });
+  }
+};
+
+/* ═════════════════════════════════════════════════
+   SUBMIT REVIEW — user rates a completed task
+   POST /api/user/task/:taskId/review
+   Body: { rating: 1-5, comment?: string }
+══════════════════════════════════════════════════ */
+export const submitReview = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.id;
+    const { rating, comment } = req.body;
+
+    // Validate rating
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ message: "Rating must be between 1 and 5" });
+    }
+
+    // Find the task
+    const task = await Task.findById(taskId);
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    // Only the task creator can review
+    if (task.userId.toString() !== userId) {
+      return res.status(403).json({ message: "You can only review your own tasks" });
+    }
+
+    // Task must be completed
+    if (task.status !== "completed") {
+      return res.status(400).json({ message: "You can only review completed tasks" });
+    }
+
+    // Must have an assigned worker
+    if (!task.assignedWorkerId) {
+      return res.status(400).json({ message: "No worker assigned to this task" });
+    }
+
+    // Check for existing review
+    const existing = await Review.findOne({ taskId });
+    if (existing) {
+      return res.status(409).json({ message: "You have already reviewed this task" });
+    }
+
+    // Create review
+    const review = await Review.create({
+      taskId,
+      userId,
+      workerId: task.assignedWorkerId,
+      rating: Math.round(rating),
+      comment: comment?.trim() || "",
+    });
+
+    // Recalculate worker average rating
+    const allReviews = await Review.find({ workerId: task.assignedWorkerId });
+    const avgRating = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
+    await Worker.findByIdAndUpdate(task.assignedWorkerId, {
+      rating: Math.round(avgRating * 10) / 10, // 1 decimal place
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Review submitted successfully",
+      review,
+    });
+  } catch (error) {
+    console.error("Submit Review Error:", error);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+/* ══════════════════════════════════════════════════
+   GET TASK REVIEW — fetch existing review for a task
+   GET /api/user/task/:taskId/review
+══════════════════════════════════════════════════ */
+export const getTaskReview = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const review = await Review.findOne({ taskId });
+    return res.status(200).json({ review: review || null });
+  } catch (error) {
+    console.error("Get Review Error:", error);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+/* ══════════════════════════════════════════════════
+   SUBMIT REPORT — user reports a worker
+   POST /api/user/task/:taskId/report
+   Body: { reason: string, description?: string }
+══════════════════════════════════════════════════ */
+export const submitReport = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.id;
+    const { reason, description } = req.body;
+
+    if (!reason) {
+      return res.status(400).json({ message: "Reason is required" });
+    }
+
+    // Find the task
+    const task = await Task.findById(taskId);
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    // Only the task creator can report
+    if (task.userId.toString() !== userId) {
+      return res.status(403).json({ message: "You can only report workers on your own tasks" });
+    }
+
+    // Must have an assigned worker
+    if (!task.assignedWorkerId) {
+      return res.status(400).json({ message: "No worker assigned to this task" });
+    }
+
+    // Check for duplicate report on same task
+    const existing = await Report.findOne({ taskId, userId });
+    if (existing) {
+      return res.status(409).json({ message: "You have already reported the worker for this task" });
+    }
+
+    const report = await Report.create({
+      taskId,
+      userId,
+      workerId: task.assignedWorkerId,
+      reason,
+      description: description?.trim() || "",
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Report submitted successfully. We will review it shortly.",
+      report,
+    });
+  } catch (error) {
+    console.error("Submit Report Error:", error);
+    return res.status(500).json({ message: "Server Error" });
   }
 };
