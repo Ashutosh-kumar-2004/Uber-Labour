@@ -14,6 +14,10 @@ import TaskDetailsModal from './TaskDetailsModal';
 import WorkerNavigationMap from './WorkerNavigationMap';
 import useLocationBroadcast, { bearingToLabel } from "../../hooks/worker/useLocationBroadcast";
 import { DISTANCE_OPTIONS } from "../../constants/task.constants";
+import ErrorModal from './ErrorModal';
+import SuccessModal from './SuccessModal';
+import BannedScreen from './BannedScreen';
+import BanWarningModal from './BanWarningModal';
 import {
   Briefcase,
   Power,
@@ -37,215 +41,6 @@ import {
   User
 } from 'lucide-react';
 import { Timer } from 'lucide-react';
-
-const ErrorModal = ({ error, onClose }) => {
-  if (!error) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-      <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl transform transition-all scale-100 opacity-100">
-        <div className="flex flex-col items-center text-center space-y-4">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
-            <AlertTriangle className="text-red-600" size={32} />
-          </div>
-          <div>
-            <h3 className="text-xl font-black uppercase tracking-tighter text-red-600">Error</h3>
-            <p className="text-gray-500 text-sm font-medium mt-1">{error}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-full bg-black text-white py-3 rounded-xl font-bold uppercase tracking-widest hover:bg-zinc-800 transition-all"
-          >
-            Dimiss
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const SuccessModal = ({ isOpen, onClose, task }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
-      <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl relative overflow-hidden animate-scale-in">
-        <div className="absolute top-0 left-0 w-full h-2 bg-green-500"></div>
-        <div className="flex flex-col items-center text-center space-y-4">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-2">
-            <ShieldCheck className="text-green-600" size={40} />
-          </div>
-          <div>
-            <h3 className="text-2xl font-black uppercase tracking-tighter text-black">Task Accepted!</h3>
-            <p className="text-gray-500 text-sm font-bold mt-2">You have successfully accepted the task.</p>
-          </div>
-
-          {task && (
-            <div className="bg-gray-50 p-4 rounded-2xl w-full border border-gray-200 mt-2">
-              <h4 className="font-bold text-sm line-clamp-1">{task.title}</h4>
-              <div className="flex items-center justify-center gap-2 mt-2">
-                <span className="text-xs font-medium text-gray-500">Earnings:</span>
-                <span className="text-lg font-black tracking-tighter">₹{task.price}</span>
-              </div>
-            </div>
-          )}
-
-          <button
-            onClick={onClose}
-            className="w-full bg-black text-white py-4 rounded-xl font-black uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-lg active:scale-95 mt-4"
-          >
-            Go to Details
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const BannedScreen = ({ banExpiresAt }) => {
-  const [timeLeft, setTimeLeft] = useState("");
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      const end = new Date(banExpiresAt);
-      const diff = end - now;
-
-      if (diff <= 0) {
-        setTimeLeft("Ban Expired. Please refresh.");
-        clearInterval(interval);
-        return;
-      }
-
-      const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-      const minutes = Math.floor((diff / (1000 * 60)) % 60);
-      const seconds = Math.floor((diff / 1000) % 60);
-
-      setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [banExpiresAt]);
-
-  const handleContactSupport = () => {
-    // Placeholder for support contact
-    window.location.href = "mailto:support@workifypro.com?subject=Ban Appeal";
-  };
-
-  return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-white text-center relative overflow-hidden">
-      {/* Background elements */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-red-600 rounded-full blur-[100px] opacity-20 -mr-20 -mt-20"></div>
-      <div className="absolute bottom-0 left-0 w-80 h-80 bg-orange-600 rounded-full blur-[100px] opacity-10 -ml-10 -mb-10"></div>
-
-      <div className="relative z-10 max-w-md w-full space-y-8 animate-fade-in-up">
-        <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.3)]">
-          <AlertTriangle className="text-red-500" size={48} />
-        </div>
-
-        <h1 className="text-4xl font-black uppercase tracking-tighter text-red-500 mb-2">Access Restricted</h1>
-        <p className="text-gray-400 font-medium">
-          Your account has been temporarily suspended due to rejecting an assigned task.
-        </p>
-
-        <div className="bg-zinc-900/80 backdrop-blur-md rounded-2xl p-6 border border-zinc-800">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Ban Lifts In</p>
-          <div className="text-5xl font-black text-white tracking-tighter font-mono">
-            {timeLeft || "--:--:--"}
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <p className="text-xs text-gray-500">
-            Repeated rejections may lead to a permanent ban.
-          </p>
-          <button
-            onClick={handleContactSupport}
-            className="w-full bg-white text-black py-4 rounded-xl font-bold uppercase tracking-widest hover:bg-gray-200 transition-all active:scale-[0.98]"
-          >
-            Contact Support
-          </button>
-          <button
-            onClick={() => window.location.reload()}
-            className="text-sm font-bold text-gray-500 hover:text-white transition-colors"
-          >
-            Refresh Status
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-
-
-const BanWarningModal = ({ isOpen, onClose, onConfirm, rejecting }) => {
-  const [reason, setReason] = useState("");
-
-  if (!isOpen) return null;
-
-  const handleConfirm = () => {
-    if (!reason.trim()) {
-      alert("Please provide a reason for rejection.");
-      return;
-    }
-    onConfirm(reason);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
-      <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-scale-in border-t-4 border-red-500">
-        <div className="flex flex-col items-center text-center space-y-4">
-          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-2">
-            <AlertTriangle className="text-red-600" size={40} />
-          </div>
-          <div>
-            <h3 className="text-2xl font-black uppercase tracking-tighter text-black">Warning!</h3>
-            <p className="text-gray-500 text-sm font-bold mt-2">Rejecting this task has consequences.</p>
-          </div>
-
-          <div className="bg-red-50 p-4 rounded-xl w-full border border-red-100 text-left space-y-2">
-            <div className="flex items-center gap-2 text-red-700 font-bold text-sm">
-              <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-              <span>₹50 Fine will be deducted</span>
-            </div>
-            <div className="flex items-center gap-2 text-red-700 font-bold text-sm">
-              <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-              <span>6-Hour Ban from platform</span>
-            </div>
-          </div>
-
-          <div className="w-full">
-            <label className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-1 block text-left">Reason for Rejection</label>
-            <textarea
-              className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black resize-none"
-              rows="3"
-              placeholder="Why act you rejecting this task?"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            ></textarea>
-          </div>
-
-          <div className="flex gap-3 w-full mt-2">
-            <button
-              onClick={onClose}
-              className="flex-1 bg-gray-100 text-black py-3 rounded-xl font-bold uppercase tracking-widest hover:bg-gray-200 transition-all"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleConfirm}
-              disabled={rejecting}
-              className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg active:scale-95 disabled:opacity-70"
-            >
-              {rejecting ? "Processing..." : "Reject"}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // ... WorkerDashboard component ...
 const WorkerDashboard = () => {
@@ -516,6 +311,12 @@ const WorkerDashboard = () => {
         onAccept={handleAcceptTask}
         loading={acceptLoading}
         workerLocation={worker?.currentLocation}
+        isActiveTask={!!activeTask && selectedTask?._id === activeTask?._id}
+        onReject={() => { setSelectedTask(null); setShowBanModal(true); }}
+        onNavigate={() => { setSelectedTask(null); setShowNavMap(true); }}
+        onMarkArrived={handleMarkArrived}
+        arrivedLoading={arrivedLoading}
+        activeTaskStatus={activeTask?.status}
       />
 
       {/* ── COMPLETION CONFIRMATION MODAL ── */}
@@ -807,7 +608,7 @@ const WorkerDashboard = () => {
               {/* ARRIVED: Show OTP input */}
               {activeTask.status === "arrived" && (
                 <div className="mt-2 bg-zinc-900/70 rounded-2xl border border-zinc-700 p-5">
-                  <p className="text-xs font-black uppercase tracking-widest text-green-400 mb-1">OTP sent to client’s email</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-green-400 mb-1">OTP sent to client's email</p>
                   <p className="text-gray-400 text-xs mb-4">Ask the client for the 4-digit code and enter it below to start the task.</p>
 
                   <input

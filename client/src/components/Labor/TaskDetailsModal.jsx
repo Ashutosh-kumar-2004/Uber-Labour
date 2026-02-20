@@ -1,10 +1,9 @@
-
 import React from 'react';
-import { 
-  X, 
-  MapPin, 
-  Clock, 
-  Briefcase, 
+import {
+  X,
+  MapPin,
+  Clock,
+  Briefcase,
   IndianRupee,
   Calendar,
   ShieldCheck,
@@ -12,7 +11,7 @@ import {
 } from 'lucide-react';
 import Map from '../../map/User/Map';
 
-const TaskDetailsModal = ({ task, onClose, onAccept, accepting }) => {
+const TaskDetailsModal = ({ task, onClose, onAccept, accepting, isActiveTask, onReject, onNavigate, onMarkArrived, arrivedLoading, activeTaskStatus }) => {
   if (!task) return null;
 
   // Format date
@@ -29,16 +28,16 @@ const TaskDetailsModal = ({ task, onClose, onAccept, accepting }) => {
   };
 
   // Convert task location to format expected by Map component
-  const taskLocation = task.location?.coordinates 
+  const taskLocation = task.location?.coordinates
     ? { lat: task.location.coordinates[1], lng: task.location.coordinates[0] }
     : null;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col md:flex-row relative animate-scale-in">
-        
+
         {/* Close Button */}
-        <button 
+        <button
           onClick={onClose}
           className="absolute top-4 right-4 z-10 bg-white/80 p-2 rounded-full hover:bg-white transition-all shadow-lg"
         >
@@ -47,12 +46,12 @@ const TaskDetailsModal = ({ task, onClose, onAccept, accepting }) => {
 
         {/* Left Side - Map */}
         <div className="w-full md:w-1/2 h-64 md:h-auto relative bg-gray-100">
-          <Map 
-            selectedLocation={taskLocation} 
-            readOnly={true} 
-            onLocationSelect={() => {}} 
+          <Map
+            selectedLocation={taskLocation}
+            readOnly={true}
+            onLocationSelect={() => { }}
           />
-          
+
           {/* Map Overlay Info */}
           <div className="absolute bottom-4 left-4 right-4 bg-white/90 backdrop-blur px-4 py-3 rounded-xl shadow-lg border border-gray-100 z-[1000]">
             <div className="flex items-start gap-3">
@@ -69,7 +68,7 @@ const TaskDetailsModal = ({ task, onClose, onAccept, accepting }) => {
 
         {/* Right Side - Details */}
         <div className="w-full md:w-1/2 p-6 md:p-8 overflow-y-auto custom-scrollbar flex flex-col">
-          
+
           {/* Header */}
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">
@@ -79,6 +78,11 @@ const TaskDetailsModal = ({ task, onClose, onAccept, accepting }) => {
               {task.subcategory && (
                 <span className="px-3 py-1 bg-gray-100 text-gray-600 text-[10px] font-bold uppercase tracking-widest rounded-full">
                   {task.subcategory}
+                </span>
+              )}
+              {isActiveTask && (
+                <span className="px-3 py-1 bg-green-100 text-green-700 text-[10px] font-black uppercase tracking-widest rounded-full">
+                  ● Active
                 </span>
               )}
             </div>
@@ -92,18 +96,18 @@ const TaskDetailsModal = ({ task, onClose, onAccept, accepting }) => {
 
           {/* Price Card */}
           <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 mb-6 flex justify-between items-center">
-             <div>
-               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Earning Potential</p>
-               <h3 className="text-3xl font-black tracking-tighter flex items-center">
-                 <IndianRupee size={24} strokeWidth={3} />
-                 {task.price}
-               </h3>
-             </div>
-             <div className="text-right">
-               <p className="text-xs font-bold text-green-600 uppercase tracking-widest bg-green-100 px-2 py-1 rounded-lg">
-                 Instant Payment
-               </p>
-             </div>
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Earning Potential</p>
+              <h3 className="text-3xl font-black tracking-tighter flex items-center">
+                <IndianRupee size={24} strokeWidth={3} />
+                {task.price}
+              </h3>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-bold text-green-600 uppercase tracking-widest bg-green-100 px-2 py-1 rounded-lg">
+                Instant Payment
+              </p>
+            </div>
           </div>
 
           {/* Details Grid */}
@@ -134,22 +138,59 @@ const TaskDetailsModal = ({ task, onClose, onAccept, accepting }) => {
 
           {/* Action Buttons */}
           <div className="mt-auto pt-4 border-t border-gray-100">
-            <button 
-              onClick={() => onAccept(task._id)}
-              disabled={accepting}
-              className="w-full bg-black text-white py-4 rounded-xl font-black uppercase tracking-widest text-sm hover:bg-zinc-800 active:scale-[0.98] transition-all shadow-xl hover:shadow-2xl flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {accepting ? (
-                <>Processing...</>
-              ) : (
-                <>
-                  <ShieldCheck size={18} /> Accept Task Now
-                </>
-              )}
-            </button>
-            <p className="text-center text-[10px] text-gray-400 font-medium mt-3">
-              By accepting, you agree to fulfill this task as per guidelines.
-            </p>
+            {isActiveTask ? (
+              <>
+                {/* Active task: Navigate + Mark Arrived (if assigned) + Cancel */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={onNavigate}
+                    className="flex-1 bg-black text-white py-4 rounded-xl font-black uppercase tracking-widest text-sm hover:bg-zinc-800 active:scale-[0.98] transition-all shadow-xl flex items-center justify-center gap-3"
+                  >
+                    <Navigation size={18} /> Navigate
+                  </button>
+
+                  {activeTaskStatus === "assigned" && (
+                    <button
+                      onClick={onMarkArrived}
+                      disabled={arrivedLoading}
+                      className="flex-1 bg-green-600 text-white py-4 rounded-xl font-black uppercase tracking-widest text-sm hover:bg-green-500 active:scale-[0.98] transition-all shadow-xl flex items-center justify-center gap-3 disabled:opacity-60"
+                    >
+                      <MapPin size={18} /> {arrivedLoading ? "Sending…" : "Mark Arrived"}
+                    </button>
+                  )}
+
+                  <button
+                    onClick={onReject}
+                    className="bg-red-500/10 text-red-500 px-5 rounded-xl hover:bg-red-500 hover:text-white transition-all active:scale-[0.98] border border-red-500/20 hover:border-red-500 flex items-center justify-center"
+                    title="Cancel Task"
+                  >
+                    <X size={22} />
+                  </button>
+                </div>
+                <p className="text-center text-[10px] text-gray-400 font-medium mt-3">
+                  You've already accepted this task.
+                </p>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => onAccept(task._id)}
+                  disabled={accepting}
+                  className="w-full bg-black text-white py-4 rounded-xl font-black uppercase tracking-widest text-sm hover:bg-zinc-800 active:scale-[0.98] transition-all shadow-xl hover:shadow-2xl flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {accepting ? (
+                    <>Processing...</>
+                  ) : (
+                    <>
+                      <ShieldCheck size={18} /> Accept Task Now
+                    </>
+                  )}
+                </button>
+                <p className="text-center text-[10px] text-gray-400 font-medium mt-3">
+                  By accepting, you agree to fulfill this task as per guidelines.
+                </p>
+              </>
+            )}
           </div>
 
         </div>
