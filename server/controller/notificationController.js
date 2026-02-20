@@ -1,4 +1,5 @@
 import Notification from "../modal/user/Notification.js";
+import Worker from "../modal/Worker.model.js";
 
 /**
  * GET /api/notifications
@@ -63,5 +64,43 @@ export const createNotification = async ({
   } catch (error) {
     console.error("createNotification error:", error);
     return null;
+  }
+};
+
+/**
+ * GET /api/notifications/worker
+ * Fetch notifications for the logged-in worker.
+ */
+export const getWorkerNotifications = async (req, res) => {
+  try {
+    const worker = await Worker.findOne({ userId: req.user._id }).select("_id");
+    if (!worker) return res.status(404).json({ success: false, message: "Worker not found" });
+
+    const notifications = await Notification.find({ workerId: worker._id })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    return res.status(200).json({ success: true, notifications });
+  } catch (error) {
+    console.error("getWorkerNotifications error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * PATCH /api/notifications/worker/read-all
+ * Mark all worker notifications as read.
+ */
+export const markAllReadWorker = async (req, res) => {
+  try {
+    const worker = await Worker.findOne({ userId: req.user._id }).select("_id");
+    if (!worker) return res.status(404).json({ success: false, message: "Worker not found" });
+
+    await Notification.updateMany({ workerId: worker._id, read: false }, { read: true });
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("markAllReadWorker error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };

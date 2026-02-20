@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import useSetWorkerAvailability from "../../hooks/worker/useSetWorkerAvailability";
 import useWorkerProfile from "../../hooks/worker/useWorkerProfile";
 import useAvailableTasks from "../../hooks/worker/useAvailableTasks";
@@ -6,6 +8,7 @@ import useAcceptTask from "../../hooks/worker/useAcceptTask";
 import useCompleteTask from "../../hooks/worker/useCompleteTask";
 import useRejectTask from "../../hooks/worker/useRejectTask";
 import ConfirmModal from "../constants/ConfirmModal";
+import useWorkerNotifications from "../../hooks/worker/useWorkerNotifications";
 import useOTPActions from "../../hooks/worker/useOTPActions";
 import TaskDetailsModal from './TaskDetailsModal';
 import WorkerNavigationMap from './WorkerNavigationMap';
@@ -29,7 +32,9 @@ import {
   ShieldCheck,
   Zap,
   IndianRupee,
-  Compass
+  Compass,
+  LogOut,
+  User
 } from 'lucide-react';
 import { Timer } from 'lucide-react';
 
@@ -244,6 +249,7 @@ const BanWarningModal = ({ isOpen, onClose, onConfirm, rejecting }) => {
 
 // ... WorkerDashboard component ...
 const WorkerDashboard = () => {
+  const navigate = useNavigate();
   // ... hooks ...
   const { worker, activeTask, loading: profileLoading, refetch: refetchProfile } = useWorkerProfile();
   const { setAvailability, loading: toggleLoading } = useSetWorkerAvailability();
@@ -261,11 +267,27 @@ const WorkerDashboard = () => {
   const [showBanModal, setShowBanModal] = useState(false);
   const [showNavMap, setShowNavMap] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const profileMenuRef = useRef(null);
   // OTP state
   const [otpInput, setOtpInput] = useState("");
   const [otpError, setOtpError] = useState(null);
   const [otpSuccess, setOtpSuccess] = useState(false);
   const { markArrived, submitOTP, arrivedLoading, otpLoading } = useOTPActions();
+  const { notifications: workerNotifs, popup: workerPopup, dismissPopup: dismissWorkerPopup, unreadCount: workerUnread, markAllRead: markAllReadWorker } = useWorkerNotifications();
+  const { logout } = useAuth();
+
+  // Close profile menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
+        setShowProfileMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // ── Live elapsed-time counter for inProgress tasks ──
   const [elapsed, setElapsed] = useState("");
@@ -554,26 +576,139 @@ const WorkerDashboard = () => {
           <div className="w-px h-6 bg-gray-200"></div>
 
           {/* Notification Bell */}
-          <button className="relative p-2 hover:bg-gray-100 rounded-full transition-colors">
+          <button
+            onClick={() => { setShowNotifPanel((p) => !p); markAllReadWorker(); }}
+            className="relative p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+          >
             <Bell size={20} className="text-gray-600" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+            {workerUnread > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center shadow-md animate-bounce"
+                style={{ minWidth: 18, height: 18 }}>
+                {workerUnread}
+              </span>
+            )}
           </button>
 
           {/* Profile */}
-          <div className="flex items-center gap-3 pl-2 cursor-pointer hover:opacity-80 transition-opacity">
-            <div className="w-10 h-10 bg-gray-200 rounded-full overflow-hidden border border-gray-100 shadow-sm">
-              {/* Placeholder for avatar */}
-              <div className="w-full h-full flex items-center justify-center bg-zinc-100 text-zinc-400 font-black">
-                {worker?.name?.[0] || "U"}
+          <div className="relative" ref={profileMenuRef}>
+            <div
+              onClick={() => setShowProfileMenu((p) => !p)}
+              className="flex items-center gap-3 pl-2 cursor-pointer hover:opacity-80 transition-opacity"
+            >
+              <div className="w-10 h-10 bg-gray-200 rounded-full overflow-hidden border border-gray-100 shadow-sm">
+                <div className="w-full h-full flex items-center justify-center bg-zinc-100 text-zinc-400 font-black">
+                  {worker?.name?.[0] || "U"}
+                </div>
+              </div>
+              <div className="hidden md:block">
+                <p className="text-xs font-bold uppercase tracking-wide">{worker?.name || "Worker"}</p>
+                <p className="text-[10px] text-gray-400 font-medium">Level 1 Pro</p>
               </div>
             </div>
-            <div className="hidden md:block">
-              <p className="text-xs font-bold uppercase tracking-wide">{worker?.name || "Worker"}</p>
-              <p className="text-[10px] text-gray-400 font-medium">Level 1 Pro</p>
-            </div>
+
+            {/* Dropdown */}
+            {showProfileMenu && (
+              <div className="absolute right-0 top-14 z-[200] w-52 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden py-1 animate-in">
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <p className="text-sm font-black text-gray-900">{worker?.name || "Worker"}</p>
+                  <p className="text-[10px] text-gray-400 font-medium truncate">{worker?.email || ""}</p>
+                </div>
+                <button
+                  onClick={() => { setShowProfileMenu(false); navigate('/worker/profile'); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <User size={16} className="text-gray-400" />
+                  <span className="font-bold">Profile</span>
+                </button>
+                <div className="h-px bg-gray-100 mx-3"></div>
+                <button
+                  onClick={() => { setShowProfileMenu(false); logout(); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut size={16} className="text-red-400" />
+                  <span className="font-bold">Logout</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </nav>
+
+      {/* ── WORKER NOTIFICATION PANEL ── */}
+      {showNotifPanel && (
+        <div className="absolute right-6 top-[72px] z-[200] w-96 max-h-[420px] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+            <span className="text-xs font-black uppercase tracking-widest text-gray-900">Notifications</span>
+            <button onClick={() => setShowNotifPanel(false)}>
+              <X size={16} className="text-gray-400 hover:text-black" />
+            </button>
+          </div>
+          <div className="overflow-y-auto max-h-[360px] divide-y divide-gray-50">
+            {workerNotifs.length === 0 ? (
+              <div className="p-8 text-center text-gray-400">
+                <Bell size={28} className="mx-auto mb-2 text-gray-300" />
+                <p className="text-xs font-bold uppercase tracking-widest">No notifications yet</p>
+              </div>
+            ) : (
+              workerNotifs.map((n) => (
+                <div key={n.id} className={`px-5 py-4 flex gap-3 ${!n.read ? 'bg-blue-50/40' : ''}`}>
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${n.type === 'task_assigned' ? 'bg-green-100 text-green-600'
+                    : n.type === 'task_cancelled' ? 'bg-red-100 text-red-600'
+                      : n.type === 'completed' ? 'bg-amber-100 text-amber-600'
+                        : 'bg-blue-100 text-blue-600'
+                    }`}>
+                    {n.type === 'task_assigned' ? <Briefcase size={16} /> : n.type === 'task_cancelled' ? <AlertTriangle size={16} /> : <Zap size={16} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-black text-gray-900 leading-tight">{n.title}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{n.message}</p>
+                    <p className="text-[10px] text-gray-400 font-bold mt-1">
+                      {new Date(n.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── WORKER POPUP TOAST ── */}
+      {workerPopup && (
+        <div className="fixed top-6 right-6 z-[9000] animate-slide-in-right">
+          <div className={`w-96 rounded-2xl shadow-2xl border overflow-hidden ${workerPopup.type === 'task_assigned' ? 'bg-gradient-to-r from-green-50 to-white border-green-200'
+            : workerPopup.type === 'task_cancelled' ? 'bg-gradient-to-r from-red-50 to-white border-red-200'
+              : 'bg-gradient-to-r from-blue-50 to-white border-blue-200'
+            }`}>
+            <button onClick={dismissWorkerPopup}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 z-10">
+              <X size={16} />
+            </button>
+            <div className="p-5 flex gap-4">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${workerPopup.type === 'task_assigned' ? 'bg-green-500 text-white'
+                : workerPopup.type === 'task_cancelled' ? 'bg-red-500 text-white'
+                  : 'bg-blue-500 text-white'
+                }`}>
+                {workerPopup.type === 'task_assigned' ? <Briefcase size={22} /> : workerPopup.type === 'task_cancelled' ? <AlertTriangle size={22} /> : <Zap size={22} />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-gray-900 text-sm uppercase tracking-tight">{workerPopup.title}</p>
+                <p className="text-xs text-gray-500 mt-1 leading-relaxed">{workerPopup.message}</p>
+              </div>
+            </div>
+            <div className={`h-1 ${workerPopup.type === 'task_assigned' ? 'bg-green-400'
+              : workerPopup.type === 'task_cancelled' ? 'bg-red-400'
+                : 'bg-blue-400'
+              } animate-shrink-bar`} />
+          </div>
+          <style>{`
+            @keyframes slideInRight { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+            .animate-slide-in-right { animation: slideInRight 0.4s cubic-bezier(0.22,1,0.36,1); }
+            @keyframes shrinkBar { from { width: 100%; } to { width: 0%; } }
+            .animate-shrink-bar { animation: shrinkBar 8s linear forwards; }
+          `}</style>
+        </div>
+      )}
 
       <main className="max-w-6xl mx-auto w-full p-6 space-y-8">
 

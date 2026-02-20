@@ -6,6 +6,8 @@ import User_Dashboard from "../components/User/User_Dashboard";
 import CreateTask from "../components/User/CreateTask";
 import Registration from "../components/Labor/Registration";
 import WorkerDashboard from "../components/Labor/WorkerDashboard";
+import WorkerProfile from "../components/Labor/WorkerProfile";
+import UserProfile from "../components/User/UserProfile";
 const AppRoutes = () => {
   return (
     <Routes>
@@ -15,11 +17,13 @@ const AppRoutes = () => {
 
       {/* user routes */}
       <Route path="/user" element={<User_Dashboard />} />
+      <Route path="/user/profile" element={<UserProfile />} />
       <Route path="/user/hire" element={<CreateTask />} />
 
       {/* Labor routes */}
-      <Route path="/worker" element={<Registration/>}/>
-      <Route path="/worker/dashboard" element={<WorkerDashboard/>}/>
+      <Route path="/worker" element={<Registration />} />
+      <Route path="/worker/dashboard" element={<WorkerDashboard />} />
+      <Route path="/worker/profile" element={<WorkerProfile />} />
       {/* Default Route */}
       <Route path="*" element={<LoginPage />} />
     </Routes>

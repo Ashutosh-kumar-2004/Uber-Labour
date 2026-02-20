@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 
 import {
   MapPin,
@@ -14,6 +15,7 @@ import {
   Zap,
   AlertTriangle,
   X as XIcon,
+  LogOut,
 } from "lucide-react";
 import CreateTask from "./CreateTask.jsx";
 import LocationPermissionModal from "./LocationPermissionModal.jsx";
@@ -22,6 +24,7 @@ import { setUserLocation } from "../../redux/slices/userSlice.jsx";
 import { getGeolocation } from "../../constants/task.constants.jsx";
 import useMyTasks from "../../hooks/user/useMyTasks.jsx";
 import useTaskNotifications from "../../hooks/user/useTaskNotifications.jsx";
+import { useAuth } from "../context/AuthContext";
 import { Trash2, RefreshCw, Clock, AlertCircle, IndianRupee, Image as ImageIcon, ChevronDown, ChevronUp } from "lucide-react";
 import CustomErrorModal from "../constants/CustomErrorModal.jsx";
 import TaskDetailsModal from "./TaskDetailsModal.jsx";
@@ -39,6 +42,21 @@ const Dashboard = () => {
   /* Socket-based notifications (worker arrived / task started) */
   const { notifications, popup, dismissPopup, unreadCount, markAllRead } = useTaskNotifications();
   const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const profileMenuRef = useRef(null);
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  // Close profile menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
+        setShowProfileMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   /* Auto-refetch task list when we get arrival / start events */
   useEffect(() => {
@@ -168,8 +186,37 @@ const Dashboard = () => {
             )}
           </button>
 
-          <div className="w-9 h-9 border-2 border-black rounded-full flex items-center justify-center ml-1 overflow-hidden cursor-pointer">
-            <User size={18} />
+          <div className="relative" ref={profileMenuRef}>
+            <button
+              onClick={() => setShowProfileMenu((p) => !p)}
+              className="w-9 h-9 border-2 border-black rounded-full flex items-center justify-center ml-1 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+            >
+              <User size={18} />
+            </button>
+
+            {showProfileMenu && (
+              <div className="absolute right-0 top-12 z-[200] w-52 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden py-1">
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <p className="text-sm font-black text-gray-900">{user?.name || "User"}</p>
+                  <p className="text-[10px] text-gray-400 font-medium truncate">{user?.email || ""}</p>
+                </div>
+                <button
+                  onClick={() => { setShowProfileMenu(false); navigate('/user/profile'); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <User size={16} className="text-gray-400" />
+                  <span className="font-bold">Profile</span>
+                </button>
+                <div className="h-px bg-gray-100 mx-3"></div>
+                <button
+                  onClick={() => { setShowProfileMenu(false); logout(); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut size={16} className="text-red-400" />
+                  <span className="font-bold">Logout</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </nav>
@@ -219,8 +266,8 @@ const Dashboard = () => {
       {popup && (
         <div className="fixed top-6 right-6 z-[9000] animate-slide-in-right">
           <div className={`w-96 rounded-2xl shadow-2xl border overflow-hidden ${popup.type === 'arrived' ? 'bg-gradient-to-r from-green-50 to-white border-green-200'
-              : popup.type === 'completed' ? 'bg-gradient-to-r from-amber-50 to-white border-amber-200'
-                : 'bg-gradient-to-r from-blue-50 to-white border-blue-200'
+            : popup.type === 'completed' ? 'bg-gradient-to-r from-amber-50 to-white border-amber-200'
+              : 'bg-gradient-to-r from-blue-50 to-white border-blue-200'
             }`}>
             {/* Close button */}
             <button onClick={dismissPopup}
@@ -230,8 +277,8 @@ const Dashboard = () => {
 
             <div className="p-5 flex gap-4">
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${popup.type === 'arrived' ? 'bg-green-500 text-white'
-                  : popup.type === 'completed' ? 'bg-amber-500 text-white'
-                    : 'bg-blue-500 text-white'
+                : popup.type === 'completed' ? 'bg-amber-500 text-white'
+                  : 'bg-blue-500 text-white'
                 }`}>
                 {popup.type === 'arrived' ? <MapPin size={22} /> : popup.type === 'completed' ? <CheckCircle size={22} /> : <Zap size={22} />}
               </div>
@@ -253,8 +300,8 @@ const Dashboard = () => {
 
             {/* Progress bar auto-dismiss indicator */}
             <div className={`h-1 ${popup.type === 'arrived' ? 'bg-green-400'
-                : popup.type === 'completed' ? 'bg-amber-400'
-                  : 'bg-blue-400'
+              : popup.type === 'completed' ? 'bg-amber-400'
+                : 'bg-blue-400'
               } animate-shrink-bar`} />
           </div>
 
