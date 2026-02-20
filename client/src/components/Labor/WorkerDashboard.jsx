@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import useSetWorkerAvailability from "../../hooks/worker/useSetWorkerAvailability";
 import useWorkerProfile from "../../hooks/worker/useWorkerProfile";
 import useAvailableTasks from "../../hooks/worker/useAvailableTasks";
 import useAcceptTask from "../../hooks/worker/useAcceptTask";
 import useCompleteTask from "../../hooks/worker/useCompleteTask";
 import useRejectTask from "../../hooks/worker/useRejectTask";
+import ConfirmModal from "../constants/ConfirmModal";
 import useOTPActions from "../../hooks/worker/useOTPActions";
 import TaskDetailsModal from './TaskDetailsModal';
 import WorkerNavigationMap from './WorkerNavigationMap';
@@ -30,6 +31,7 @@ import {
   IndianRupee,
   Compass
 } from 'lucide-react';
+import { Timer } from 'lucide-react';
 
 const ErrorModal = ({ error, onClose }) => {
   if (!error) return null;
@@ -94,6 +96,7 @@ const SuccessModal = ({ isOpen, onClose, task }) => {
     </div>
   );
 };
+
 const BannedScreen = ({ banExpiresAt }) => {
   const [timeLeft, setTimeLeft] = useState("");
 
@@ -257,11 +260,39 @@ const WorkerDashboard = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showBanModal, setShowBanModal] = useState(false);
   const [showNavMap, setShowNavMap] = useState(false);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
   // OTP state
   const [otpInput, setOtpInput] = useState("");
   const [otpError, setOtpError] = useState(null);
   const [otpSuccess, setOtpSuccess] = useState(false);
   const { markArrived, submitOTP, arrivedLoading, otpLoading } = useOTPActions();
+
+  // ── Live elapsed-time counter for inProgress tasks ──
+  const [elapsed, setElapsed] = useState("");
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    clearInterval(timerRef.current);
+    if (activeTask?.status === "inProgress" && (activeTask.otpVerifiedAt || activeTask.arrivedAt)) {
+      const startTime = new Date(activeTask.otpVerifiedAt || activeTask.arrivedAt).getTime();
+      const tick = () => {
+        const diff = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+        const h = Math.floor(diff / 3600);
+        const m = Math.floor((diff % 3600) / 60);
+        const s = diff % 60;
+        setElapsed(
+          h > 0
+            ? `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`
+            : `${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`
+        );
+      };
+      tick();
+      timerRef.current = setInterval(tick, 1000);
+    } else {
+      setElapsed("");
+    }
+    return () => clearInterval(timerRef.current);
+  }, [activeTask?.status, activeTask?.otpVerifiedAt, activeTask?.arrivedAt]);
 
   // ── Real-time GPS tracking (active only when task exists) ──
   const { isTracking, speed, bearing, workerCoords, routePath } =
@@ -387,15 +418,17 @@ const WorkerDashboard = () => {
 
   const handleCompleteTask = async () => {
     if (!activeTask) return;
-    if (window.confirm("Are you sure you want to mark this task as completed?")) {
-      try {
-        await completeTask(activeTask._id);
-        await refetchProfile(); // Will clear activeTask
-        alert("Task completed successfully! Earnings added to your wallet.");
-      } catch (err) {
-        console.error(err);
-        alert("Failed to complete task: " + (err.response?.data?.message || err.message));
-      }
+    setShowCompleteModal(true);
+  };
+
+  const confirmCompleteTask = async () => {
+    try {
+      await completeTask(activeTask._id);
+      setShowCompleteModal(false);
+      await refetchProfile();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to complete task: " + (err.response?.data?.message || err.message));
     }
   };
 
@@ -462,6 +495,26 @@ const WorkerDashboard = () => {
         loading={acceptLoading}
         workerLocation={worker?.currentLocation}
       />
+
+      {/* ── COMPLETION CONFIRMATION MODAL ── */}
+      {showCompleteModal && activeTask && (
+        <ConfirmModal
+          isOpen={showCompleteModal}
+          onClose={() => setShowCompleteModal(false)}
+          onConfirm={confirmCompleteTask}
+          loading={completeLoading}
+          title="Complete This Task?"
+          summaryRows={[
+            { label: "Task", value: activeTask.title },
+            { label: "Payment", value: `₹${activeTask.price}`, highlight: true },
+            ...(elapsed ? [{ label: "Duration", value: elapsed }] : []),
+          ]}
+          checkboxLabel="Have you collected the cash?"
+          checkboxLabelChecked="Cash Collected"
+          checkboxDescription={<>Confirm that you have received <span className="font-black text-gray-800">₹{activeTask.price}</span> from the client before marking this task as complete.</>}
+          confirmText="Confirm"
+        />
+      )}
 
       {/* Top Navbar */}
       <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
@@ -554,8 +607,8 @@ const WorkerDashboard = () => {
                   <span className="text-[10px] font-black uppercase tracking-widest text-green-400">In Progress</span>
                 </div>
 
-                {/* ── Tracking Active badge ── */}
-                {isTracking && (
+                {/* ── Tracking Active badge (hide when inProgress — worker already arrived) ── */}
+                {isTracking && activeTask.status !== "inProgress" && (
                   <div className="flex items-center gap-2 bg-orange-500/10 border border-orange-500/20 px-3 py-1.5 rounded-full">
                     <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse"></span>
                     <Navigation size={12} className="text-orange-400" />
@@ -660,48 +713,49 @@ const WorkerDashboard = () => {
                 </div>
               )}
 
-              {/* IN PROGRESS: Navigate + Complete + Details + Reject */}
+              {/* IN PROGRESS: Timer + Complete + Details + Reject (no Navigate — worker already arrived) */}
               {(activeTask.status === "inProgress" || (!activeTask.status)) && (
-                <div className="flex gap-3">
-                  {/* Navigate */}
-                  <button
-                    onClick={() => setShowNavMap(true)}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-4 rounded-2xl font-black uppercase tracking-widest transition-all active:scale-[0.98] shadow-lg hover:shadow-blue-600/30"
-                  >
-                    <Compass size={18} />
-                    <span className="text-xs">Navigate</span>
-                  </button>
+                <div>
+                  {/* Live elapsed timer */}
+                  {elapsed && (
+                    <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 px-4 py-3 rounded-2xl mb-3">
+                      <Timer size={16} className="text-amber-400" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">Working Time</span>
+                      <span className="ml-auto text-lg font-black tracking-tight text-amber-300 font-mono">{elapsed}</span>
+                    </div>
+                  )}
+                  <div className="flex gap-3">
+                    {/* Complete */}
+                    <button
+                      onClick={handleCompleteTask}
+                      disabled={completeLoading}
+                      className="flex-1 bg-white text-black py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition-all active:scale-[0.98] shadow-lg flex items-center justify-center gap-2 group disabled:opacity-70"
+                    >
+                      {completeLoading ? "Completing..." : (
+                        <>
+                          <CheckCircle size={20} className="group-hover:scale-110 transition-transform" />
+                          <span>Complete</span>
+                        </>
+                      )}
+                    </button>
 
-                  {/* Complete */}
-                  <button
-                    onClick={handleCompleteTask}
-                    disabled={completeLoading}
-                    className="flex-1 bg-white text-black py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition-all active:scale-[0.98] shadow-lg flex items-center justify-center gap-2 group disabled:opacity-70"
-                  >
-                    {completeLoading ? "Completing..." : (
-                      <>
-                        <CheckCircle size={20} className="group-hover:scale-110 transition-transform" />
-                        <span>Complete</span>
-                      </>
-                    )}
-                  </button>
+                    {/* Details */}
+                    <button
+                      className="bg-zinc-800 text-white px-5 rounded-2xl hover:bg-zinc-700 transition-all active:scale-[0.98] border border-zinc-700"
+                      onClick={() => setSelectedTask(activeTask)}
+                    >
+                      <ArrowUpRight size={22} />
+                    </button>
 
-                  {/* Details */}
-                  <button
-                    className="bg-zinc-800 text-white px-5 rounded-2xl hover:bg-zinc-700 transition-all active:scale-[0.98] border border-zinc-700"
-                    onClick={() => setSelectedTask(activeTask)}
-                  >
-                    <ArrowUpRight size={22} />
-                  </button>
-
-                  {/* Reject */}
-                  <button
-                    onClick={() => setShowBanModal(true)}
-                    className="bg-red-500/10 text-red-500 px-4 rounded-2xl hover:bg-red-500 hover:text-white transition-all active:scale-[0.98] border border-red-500/20 hover:border-red-500"
-                    title="Reject Task"
-                  >
-                    <X size={22} />
-                  </button>
+                    {/* Reject */}
+                    <button
+                      onClick={() => setShowBanModal(true)}
+                      className="bg-red-500/10 text-red-500 px-4 rounded-2xl hover:bg-red-500 hover:text-white transition-all active:scale-[0.98] border border-red-500/20 hover:border-red-500"
+                      title="Reject Task"
+                    >
+                      <X size={22} />
+                    </button>
+                  </div>
                 </div>
               )}
 

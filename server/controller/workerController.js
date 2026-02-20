@@ -42,7 +42,7 @@ export const getWorkerProfile = async (req, res) => {
 
     const activeTask = await Task.findOne({
       assignedWorkerId: worker._id,
-      status: { $in: ["assigned", "inProgress"] }
+      status: { $in: ["assigned", "arrived", "inProgress"] }
     });
 
     res.status(200).json({
@@ -145,7 +145,7 @@ export const verifyWorker = async (req, res) => {
 //     if (!worker.isOnline) {
 //         const activeTask = await Task.findOne({
 //             assignedWorkerId: worker._id,
-//             status: { $in: ["assigned", "inProgress"] }
+//             status: { $in: ["assigned", "arrived", "inProgress"] }
 //         });
 
 //         if (!activeTask) {
@@ -249,7 +249,7 @@ export const acceptTask = async (req, res) => {
     if (!worker.isOnline) {
       const activeTask = await Task.findOne({
         assignedWorkerId: worker._id,
-        status: { $in: ["assigned", "inProgress"] }
+        status: { $in: ["assigned", "arrived", "inProgress"] }
       });
 
       if (!activeTask) {
@@ -505,9 +505,28 @@ export const completeTask = async (req, res) => {
     });
 
     /* =========================
-       NOTIFICATION to USER  ->pending
+       NOTIFICATION to USER
     ========================= */
-    await notifyTaskCompleted({ taskId: task._id });
+    try {
+      const { getIO } = await import("../services/socket.service.js");
+      getIO().to(`user:${task.userId.toString()}`).emit("task_completed", {
+        taskId: task._id.toString(),
+        workerId: worker._id.toString(),
+      });
+    } catch (_) {}
+
+    // Persist notification
+    try {
+      const { createNotification } = await import("../controller/notificationController.js");
+      await createNotification({
+        userId: task.userId,
+        taskId: task._id,
+        type: "completed",
+        title: "Task Completed! 🎉",
+        message: "The worker has finished your task. Please review and confirm.",
+        taskTitle: task.title,
+      });
+    } catch (_) {}
 
     return res.status(200).json({
       success: true,
@@ -559,7 +578,7 @@ export const setWorkerAvailability = async (req, res) => {
     if (isOnline === false) {
       const activeTask = await Task.findOne({
         assignedWorkerId: worker._id,
-        status: { $in: ["assigned", "inProgress"] }
+        status: { $in: ["assigned", "arrived", "inProgress"] }
       });
 
       if (activeTask) {
@@ -801,8 +820,8 @@ export const markArrived = async (req, res) => {
       return res.status(403).json({ message: "Not authorised for this task" });
     }
 
-    // Must be in 'assigned' status to mark arrived
-    if (task.status !== "assigned") {
+    // Must be in 'assigned' or 'arrived' status (arrived = resend OTP)
+    if (task.status !== "assigned" && task.status !== "arrived") {
       return res.status(400).json({
         message: `Cannot mark arrived when task status is '${task.status}'`,
       });
@@ -841,12 +860,28 @@ export const markArrived = async (req, res) => {
       // Do NOT fail the request — task status is already updated
     }
 
-    // Emit socket update
+    // Emit socket update — include OTP so user's app can show it
     try {
       const { getIO } = await import("../services/socket.service.js");
       getIO().to(`user:${task.userId.toString()}`).emit("task_arrived", {
         taskId: task._id.toString(),
         workerId: worker._id.toString(),
+        otp,
+        taskTitle: task.title,
+      });
+    } catch (_) {}
+
+    // Persist notification to DB (3-day TTL)
+    try {
+      const { createNotification } = await import("../controller/notificationController.js");
+      await createNotification({
+        userId: task.userId,
+        taskId: task._id,
+        type: "arrived",
+        title: "Worker Has Arrived!",
+        message: "Share the code with the worker to start the task.",
+        otp,
+        taskTitle: task.title,
       });
     } catch (_) {}
 
@@ -917,6 +952,19 @@ export const verifyOTP = async (req, res) => {
       getIO().to(`user:${task.userId.toString()}`).emit("task_started", {
         taskId: task._id.toString(),
         workerId: worker._id.toString(),
+      });
+    } catch (_) {}
+
+    // Persist notification
+    try {
+      const { createNotification } = await import("../controller/notificationController.js");
+      await createNotification({
+        userId: task.userId,
+        taskId: task._id,
+        type: "started",
+        title: "Task In Progress",
+        message: "The worker has verified the OTP. Your task is now being worked on!",
+        taskTitle: task.title,
       });
     } catch (_) {}
 

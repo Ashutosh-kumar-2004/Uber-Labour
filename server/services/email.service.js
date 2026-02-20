@@ -1,13 +1,3 @@
-/**
- * email.service.js — Nodemailer transport
- *
- * Env vars required in server/.env:
- *   EMAIL_HOST     = smtp.gmail.com (or relay host)
- *   EMAIL_PORT     = 587
- *   EMAIL_USER     = your Gmail address
- *   EMAIL_PASS     = App Password (not your login password)
- *   EMAIL_FROM     = "Workify Pro <youremail@gmail.com>"
- */
 import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({

@@ -9,6 +9,11 @@ import {
   Users,
   CheckCircle,
   ChevronRight,
+  Bell,
+  Mail,
+  Zap,
+  AlertTriangle,
+  X as XIcon,
 } from "lucide-react";
 import CreateTask from "./CreateTask.jsx";
 import LocationPermissionModal from "./LocationPermissionModal.jsx";
@@ -16,6 +21,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { setUserLocation } from "../../redux/slices/userSlice.jsx";
 import { getGeolocation } from "../../constants/task.constants.jsx";
 import useMyTasks from "../../hooks/user/useMyTasks.jsx";
+import useTaskNotifications from "../../hooks/user/useTaskNotifications.jsx";
 import { Trash2, RefreshCw, Clock, AlertCircle, IndianRupee, Image as ImageIcon, ChevronDown, ChevronUp } from "lucide-react";
 import CustomErrorModal from "../constants/CustomErrorModal.jsx";
 import TaskDetailsModal from "./TaskDetailsModal.jsx";
@@ -29,6 +35,15 @@ const Dashboard = () => {
 
   /* Lift task state here so we can refetch after task creation */
   const { tasks, loading, error, deleteTask, renewTask, refetch, banInfo, clearBan } = useMyTasks();
+
+  /* Socket-based notifications (worker arrived / task started) */
+  const { notifications, popup, dismissPopup, unreadCount, markAllRead } = useTaskNotifications();
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
+
+  /* Auto-refetch task list when we get arrival / start events */
+  useEffect(() => {
+    if (popup) refetch();
+  }, [popup]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* LOCATE ME HANDLER */
   const handleLocateMe = async () => {
@@ -138,11 +153,129 @@ const Dashboard = () => {
             <Plus size={14} />
             New Work
           </button>
-          <div className="w-9 h-9 border-2 border-black rounded-full flex items-center justify-center ml-2 overflow-hidden cursor-pointer">
+
+          {/* ── Notification Bell ── */}
+          <button
+            onClick={() => { setShowNotifPanel((p) => !p); markAllRead(); }}
+            className="relative w-9 h-9 border border-gray-200 rounded-full flex items-center justify-center hover:bg-gray-50 transition-all cursor-pointer"
+          >
+            <Bell size={18} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center shadow-md animate-bounce"
+                style={{ minWidth: 18, height: 18 }}>
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          <div className="w-9 h-9 border-2 border-black rounded-full flex items-center justify-center ml-1 overflow-hidden cursor-pointer">
             <User size={18} />
           </div>
         </div>
       </nav>
+
+      {/* ── NOTIFICATION PANEL (slides down from bell) ── */}
+      {showNotifPanel && (
+        <div className="absolute right-6 top-[72px] z-[200] w-96 max-h-[420px] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+            <span className="text-xs font-black uppercase tracking-widest text-gray-900">Notifications</span>
+            <button onClick={() => setShowNotifPanel(false)}>
+              <XIcon size={16} className="text-gray-400 hover:text-black" />
+            </button>
+          </div>
+          <div className="overflow-y-auto max-h-[360px] divide-y divide-gray-50">
+            {notifications.length === 0 ? (
+              <div className="p-8 text-center text-gray-400">
+                <Bell size={28} className="mx-auto mb-2 text-gray-300" />
+                <p className="text-xs font-bold uppercase tracking-widest">No notifications yet</p>
+              </div>
+            ) : (
+              notifications.map((n) => (
+                <div key={n.id} className={`px-5 py-4 flex gap-3 ${!n.read ? 'bg-blue-50/40' : ''}`}>
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${n.type === 'arrived' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'
+                    }`}>
+                    {n.type === 'arrived' ? <MapPin size={16} /> : <Zap size={16} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-black text-gray-900 leading-tight">{n.title}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{n.message}</p>
+                    {n.otp && (
+                      <div className="mt-2 bg-black rounded-lg px-3 py-2 text-center">
+                        <span className="text-white font-black text-lg tracking-[0.4em] font-mono">{n.otp}</span>
+                      </div>
+                    )}
+                    <p className="text-[10px] text-gray-400 font-bold mt-1">
+                      {new Date(n.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── ARRIVAL POPUP TOAST ── */}
+      {popup && (
+        <div className="fixed top-6 right-6 z-[9000] animate-slide-in-right">
+          <div className={`w-96 rounded-2xl shadow-2xl border overflow-hidden ${popup.type === 'arrived' ? 'bg-gradient-to-r from-green-50 to-white border-green-200'
+              : popup.type === 'completed' ? 'bg-gradient-to-r from-amber-50 to-white border-amber-200'
+                : 'bg-gradient-to-r from-blue-50 to-white border-blue-200'
+            }`}>
+            {/* Close button */}
+            <button onClick={dismissPopup}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 z-10">
+              <XIcon size={16} />
+            </button>
+
+            <div className="p-5 flex gap-4">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${popup.type === 'arrived' ? 'bg-green-500 text-white'
+                  : popup.type === 'completed' ? 'bg-amber-500 text-white'
+                    : 'bg-blue-500 text-white'
+                }`}>
+                {popup.type === 'arrived' ? <MapPin size={22} /> : popup.type === 'completed' ? <CheckCircle size={22} /> : <Zap size={22} />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-gray-900 text-sm uppercase tracking-tight">{popup.title}</p>
+                <p className="text-xs text-gray-500 mt-1 leading-relaxed">{popup.message}</p>
+
+                {popup.type === 'arrived' && popup.otp && (
+                  <div className="mt-3">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Your OTP Code</p>
+                    <div className="bg-black rounded-xl px-4 py-3 text-center shadow-inner">
+                      <span className="text-white font-black text-3xl tracking-[0.6em] font-mono">{popup.otp}</span>
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1.5 text-center">Share this code with the worker · Also sent to your email</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Progress bar auto-dismiss indicator */}
+            <div className={`h-1 ${popup.type === 'arrived' ? 'bg-green-400'
+                : popup.type === 'completed' ? 'bg-amber-400'
+                  : 'bg-blue-400'
+              } animate-shrink-bar`} />
+          </div>
+
+          <style>{`
+            @keyframes slideInRight {
+              from { transform: translateX(120%); opacity: 0; }
+              to   { transform: translateX(0); opacity: 1; }
+            }
+            .animate-slide-in-right {
+              animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
+            @keyframes shrinkBar {
+              from { width: 100%; }
+              to   { width: 0%; }
+            }
+            .animate-shrink-bar {
+              animation: shrinkBar 8s linear forwards;
+            }
+          `}</style>
+        </div>
+      )}
 
       {/* Hero Section */}
       <main className="flex-grow max-w-7xl mx-auto w-full px-6 py-12">
