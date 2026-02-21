@@ -1,13 +1,5 @@
 import mongoose from "mongoose";
-
-const REPORT_REASONS = [
-  "Unprofessional behavior",
-  "Did not complete work",
-  "Safety concern",
-  "Overcharged",
-  "No show",
-  "Other",
-];
+import { REPORT_REASONS } from "../constants/constant";
 
 const reportSchema = new mongoose.Schema(
   {
