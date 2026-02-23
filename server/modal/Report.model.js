@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { REPORT_REASONS } from "../constants/constant";
+import { REPORT_REASONS } from "../constants/constant.js";
 
 const reportSchema = new mongoose.Schema(
   {

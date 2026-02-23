@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import {
   X, Clock, MapPin, IndianRupee, Trash2, RefreshCw,
-  AlertCircle, Briefcase, Calendar, AlertTriangle, Navigation,
+  AlertCircle, Briefcase, Calendar, AlertTriangle, Navigation, Star, Flag,
 } from 'lucide-react';
 import LiveTrackingMap from './LiveTrackingMap';
+import ReviewModal from './ReviewModal.jsx';
+import ReportWorkerModal from './ReportWorkerModal.jsx';
+import axiosInstance from '../../api/axios.jsx';
 
 /** Statuses where the task has a live worker (tracking visible + delete penalty) */
 const ACTIVE_STATUSES = new Set(["assigned", "inProgress", "arrived"]);
+
+/** Tracks which completed taskIds have already auto-prompted the review modal this session */
+const reviewPromptedIds = new Set();
 
 /** Confirm modal shown before deleting an active task (warns about fine + ban) */
 const PenaltyConfirmModal = ({ onConfirm, onCancel }) => (
@@ -77,11 +83,19 @@ const PenaltyConfirmModal = ({ onConfirm, onCancel }) => (
 const TaskDetailsModal = ({ task, isOpen, onClose, onRenew, onDelete }) => {
   const [renewDate, setRenewDate] = useState("");
   const [showPenaltyConfirm, setShowPenaltyConfirm] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [existingReview, setExistingReview] = useState(null);
+  const [reviewFetched, setReviewFetched] = useState(false);
 
   const isExpired =
-    task?.status === "expired" ||
-    (task?.expiresAt && new Date(task.expiresAt) < new Date()) ||
-    (!task?.expiresAt && task?.status === "broadcasting" && new Date(task?.scheduledStartAt) < new Date());
+    task?.status !== "completed" &&
+    task?.status !== "cancelled" &&
+    (
+      task?.status === "expired" ||
+      (task?.expiresAt && new Date(task.expiresAt) < new Date()) ||
+      (!task?.expiresAt && task?.status === "broadcasting" && new Date(task?.scheduledStartAt) < new Date())
+    );
 
   const isLiveTask = task && ACTIVE_STATUSES.has(task.status);
 
@@ -90,6 +104,34 @@ const TaskDetailsModal = ({ task, isOpen, onClose, onRenew, onDelete }) => {
       const now = new Date();
       now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
       setRenewDate(now.toISOString().slice(0, 10));
+    }
+  }, [isOpen, task]);
+
+  // Fetch existing review whenever a completed task is opened;
+  // auto-open ReviewModal once if the task has never been reviewed.
+  useEffect(() => {
+    if (isOpen && task?.status === 'completed' && task?._id && !reviewFetched) {
+      axiosInstance
+        .get(`/api/user/task/${task._id}/review`)
+        .then((res) => {
+          const review = res.data?.review || null;
+          setExistingReview(review);
+          setReviewFetched(true);
+
+          // Auto-open the review modal only if:
+          //   1. No review exists yet
+          //   2. We haven't prompted the user for this task this session
+          if (!review && !reviewPromptedIds.has(task._id)) {
+            reviewPromptedIds.add(task._id);
+            setShowReviewModal(true);
+          }
+        })
+        .catch(() => setReviewFetched(true));
+    }
+    // Reset when modal is closed or task changes
+    if (!isOpen) {
+      setExistingReview(null);
+      setReviewFetched(false);
     }
   }, [isOpen, task]);
 
@@ -126,6 +168,25 @@ const TaskDetailsModal = ({ task, isOpen, onClose, onRenew, onDelete }) => {
           onCancel={() => setShowPenaltyConfirm(false)}
         />
       )}
+
+      {/* Review modal */}
+      <ReviewModal
+        taskId={task?._id}
+        isOpen={showReviewModal}
+        onClose={() => setShowReviewModal(false)}
+        onSuccess={(rating) => {
+          setExistingReview({ rating });
+          setShowReviewModal(false);
+        }}
+      />
+
+      {/* Report modal */}
+      <ReportWorkerModal
+        taskId={task?._id}
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        onSuccess={() => setShowReportModal(false)}
+      />
 
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
@@ -255,6 +316,54 @@ const TaskDetailsModal = ({ task, isOpen, onClose, onRenew, onDelete }) => {
               <button onClick={handleRenewClick}
                 className="px-6 py-3 bg-red-600 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-red-700 transition-all shadow-lg flex items-center gap-2">
                 <RefreshCw size={14} /> Renew
+              </button>
+            </div>
+          )}
+
+          {/* ── Review & Report (completed tasks only) ─── */}
+          {task.status === 'completed' && (
+            <div className="flex gap-3 w-full">
+              {/* Review button — shows submitted stars if already reviewed */}
+              {existingReview ? (
+                <div
+                  style={{
+                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    gap: 6, background: '#FFFBEB', border: '1.5px solid #FDE68A',
+                    borderRadius: 12, padding: '12px 0',
+                  }}
+                >
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <Star
+                      key={i}
+                      size={16}
+                      fill={i < existingReview.rating ? '#F59E0B' : 'none'}
+                      color={i < existingReview.rating ? '#F59E0B' : '#D1D5DB'}
+                      strokeWidth={1.8}
+                    />
+                  ))}
+                  <span style={{ fontSize: 11, fontWeight: 800, color: '#92400E', letterSpacing: 1, textTransform: 'uppercase', marginLeft: 4 }}>
+                    Reviewed
+                  </span>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowReviewModal(true)}
+                  className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                  style={{ background: '#FFFBEB', border: '1.5px solid #FDE68A', color: '#92400E' }}
+                >
+                  <Star size={14} />
+                  Review Worker
+                </button>
+              )}
+
+              {/* Report button */}
+              <button
+                onClick={() => setShowReportModal(true)}
+                className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                style={{ background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#DC2626' }}
+              >
+                <Flag size={14} />
+                Report Worker
               </button>
             </div>
           )}

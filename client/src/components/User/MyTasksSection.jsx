@@ -220,8 +220,12 @@ const MyTasksSection = ({ tasks, loading, error, deleteTask, renewTask, refetch,
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
           {filtered.map((task) => {
             const isExpired =
-              task.status === "expired" ||
-              (task.expiresAt && new Date(task.expiresAt) < new Date());
+              task.status !== "completed" &&
+              task.status !== "cancelled" &&
+              (
+                task.status === "expired" ||
+                (task.expiresAt && new Date(task.expiresAt) < new Date())
+              );
 
             return (
               <div

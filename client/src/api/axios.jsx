@@ -8,7 +8,7 @@ const axiosInstance = axios.create({
 
 axiosInstance.interceptors.request.use(
   (config) => {
-    /* Read JWT from Redux state — no localStorage needed */
+    /* Read JWT from Redux state */
     const token = store.getState().user.token;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
