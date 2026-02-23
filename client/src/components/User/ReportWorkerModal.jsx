@@ -31,40 +31,50 @@ const ReportWorkerModal = ({ taskId, isOpen, onClose, onSuccess }) => {
   /* ── Success screen ─────────────────────────────── */
   if (success) {
     return (
-      <div style={overlay}>
-        <div style={{ ...card, textAlign: "center", padding: 40 }}>
-          <CheckCircle size={64} color="#22C55E" style={{ margin: "0 auto 16px" }} />
-          <h2 style={heading}>Report Submitted</h2>
-          <p style={{ color: "#6B7280", fontSize: 14, marginTop: 8, lineHeight: 1.6 }}>
-            We've received your report and will review it shortly. Thank you for keeping the community safe.
+      <div className="fixed inset-0 z-[200001] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm">
+        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-10 text-center">
+          <CheckCircle size={64} className="text-green-500 mx-auto mb-4" />
+          <h2 className="text-xl font-black uppercase tracking-tight mb-2">Report Submitted</h2>
+          <p className="text-gray-500 text-sm leading-relaxed mb-8">
+            We’ve received your report and will review it shortly. Thank you for keeping the community safe.
           </p>
-          <button onClick={onClose} style={{ ...btnPrimary, marginTop: 28, width: "100%" }}>Close</button>
+          <button
+            onClick={onClose}
+            className="w-full py-3 bg-gray-900 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-black transition-all"
+          >
+            Close
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={overlay}>
-      <div style={card}>
+    <div className="fixed inset-0 z-[200001] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8">
+
         {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 38, height: 38, background: "#FEF2F2", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Flag size={18} color="#EF4444" />
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 flex items-center justify-center bg-red-50 rounded-xl">
+              <Flag size={18} className="text-red-500" />
             </div>
-            <h2 style={heading}>Report Worker</h2>
+            <h2 className="text-xl font-black uppercase tracking-tight">Report Worker</h2>
           </div>
-          <button onClick={onClose} style={closeBtn} aria-label="Close">
-            <X size={20} />
+          <button
+            onClick={onClose}
+            className="w-9 h-9 flex items-center justify-center bg-gray-100 rounded-full hover:bg-gray-200 transition-all"
+            aria-label="Close"
+          >
+            <X size={18} />
           </button>
         </div>
 
-        {/* Reason selector */}
-        <label style={labelStyle}>
-          Select a reason <span style={{ color: "#EF4444" }}>*</span>
+        {/* Reason pills */}
+        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-700 mb-3">
+          Select a reason <span className="text-red-500">*</span>
         </label>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
+        <div className="flex flex-wrap gap-2 mb-5">
           {REPORT_REASONS.map((r) => {
             const active = reason === r;
             return (
@@ -72,17 +82,11 @@ const ReportWorkerModal = ({ taskId, isOpen, onClose, onSuccess }) => {
                 key={r}
                 type="button"
                 onClick={() => setReason(r)}
-                style={{
-                  padding: "8px 14px",
-                  borderRadius: 50,
-                  border: active ? "2px solid #EF4444" : "2px solid #E5E7EB",
-                  background: active ? "#FEF2F2" : "#F9FAFB",
-                  color: active ? "#DC2626" : "#374151",
-                  fontWeight: 700,
-                  fontSize: 12,
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
+                className={`px-4 py-2 rounded-full text-xs font-bold border-2 transition-all ${
+                  active
+                    ? "border-red-500 bg-red-50 text-red-600"
+                    : "border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-400"
+                }`}
               >
                 {r}
               </button>
@@ -91,8 +95,8 @@ const ReportWorkerModal = ({ taskId, isOpen, onClose, onSuccess }) => {
         </div>
 
         {/* Description */}
-        <label style={labelStyle}>
-          Additional details <span style={{ fontWeight: 400, color: "#9CA3AF" }}>(optional)</span>
+        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-700 mb-2">
+          Additional details <span className="font-normal text-gray-400">(optional)</span>
         </label>
         <textarea
           value={description}
@@ -100,28 +104,27 @@ const ReportWorkerModal = ({ taskId, isOpen, onClose, onSuccess }) => {
           maxLength={1000}
           placeholder="Describe what happened…"
           rows={4}
-          style={textarea}
+          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
         />
-        <p style={{ fontSize: 11, color: "#9CA3AF", textAlign: "right", marginTop: 4 }}>
-          {description.length}/1000
-        </p>
+        <p className="text-[11px] text-gray-400 text-right mt-1">{description.length}/1000</p>
 
         {/* Error */}
         {error && (
-          <p style={{ color: "#EF4444", fontSize: 12, fontWeight: 600, marginTop: 8 }}>{error}</p>
+          <p className="text-red-500 text-xs font-semibold mt-2">{error}</p>
         )}
 
         {/* Actions */}
-        <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-          <button onClick={onClose} style={btnSecondary}>Cancel</button>
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 bg-gray-100 text-gray-700 text-xs font-black uppercase tracking-widest rounded-xl hover:bg-gray-200 transition-all"
+          >
+            Cancel
+          </button>
           <button
             onClick={handleSubmit}
             disabled={!reason || loading}
-            style={{
-              ...btnReport,
-              flex: 2,
-              opacity: !reason || loading ? 0.5 : 1,
-            }}
+            className="flex-[2] py-3 bg-red-500 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-red-600 transition-all shadow-lg shadow-red-200 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {loading ? "Submitting…" : "Submit Report"}
           </button>
@@ -129,47 +132,6 @@ const ReportWorkerModal = ({ taskId, isOpen, onClose, onSuccess }) => {
       </div>
     </div>
   );
-};
-
-/* ── styles ─────────────────────────────────────── */
-const overlay = {
-  position: "fixed", inset: 0, zIndex: 200001,
-  background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)",
-  display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
-};
-const card = {
-  background: "#fff", borderRadius: 24,
-  maxWidth: 460, width: "100%",
-  boxShadow: "0 25px 60px rgba(0,0,0,0.25)",
-  padding: 32,
-};
-const heading = { fontSize: 20, fontWeight: 900, letterSpacing: -0.5, margin: 0, textTransform: "uppercase" };
-const closeBtn = {
-  background: "#F3F4F6", border: "none", borderRadius: "50%",
-  width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center",
-  cursor: "pointer",
-};
-const labelStyle = { display: "block", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1, color: "#374151", marginBottom: 8 };
-const textarea = {
-  width: "100%", border: "1.5px solid #E5E7EB", borderRadius: 12,
-  padding: "12px 14px", fontSize: 13, resize: "vertical",
-  fontFamily: "inherit", outline: "none", boxSizing: "border-box",
-};
-const btnReport = {
-  flex: 1, padding: "13px 0", background: "#EF4444", color: "#fff",
-  border: "none", borderRadius: 12, fontWeight: 800,
-  fontSize: 11, letterSpacing: 2, textTransform: "uppercase", cursor: "pointer",
-  boxShadow: "0 4px 12px rgba(239,68,68,0.3)",
-};
-const btnPrimary = {
-  padding: "13px 0", background: "#111827", color: "#fff",
-  border: "none", borderRadius: 12, fontWeight: 800,
-  fontSize: 11, letterSpacing: 2, textTransform: "uppercase", cursor: "pointer",
-};
-const btnSecondary = {
-  flex: 1, padding: "13px 0", background: "#F3F4F6", color: "#374151",
-  border: "none", borderRadius: 12, fontWeight: 800,
-  fontSize: 11, letterSpacing: 2, textTransform: "uppercase", cursor: "pointer",
 };
 
 export default ReportWorkerModal;

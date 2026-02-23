@@ -81,7 +81,10 @@ const MyTasksSection = ({ tasks, loading, error, deleteTask, renewTask, refetch,
   // Status filter
   if (statusFilter !== "all") {
     filtered = filtered.filter((t) => {
-      const isExp = t.status === "expired" || (t.expiresAt && new Date(t.expiresAt) < new Date());
+      const isExp =
+        t.status !== "completed" &&
+        t.status !== "cancelled" &&
+        (t.status === "expired" || (t.expiresAt && new Date(t.expiresAt) < new Date()));
       if (statusFilter === "expired") return isExp;
       if (statusFilter === "open") return t.status === "open" || t.status === "pending";
       return t.status === statusFilter && !isExp;
@@ -118,7 +121,10 @@ const MyTasksSection = ({ tasks, loading, error, deleteTask, renewTask, refetch,
   const countFor = (key) => {
     if (key === "all") return tasks.length;
     return tasks.filter((t) => {
-      const isExp = t.status === "expired" || (t.expiresAt && new Date(t.expiresAt) < new Date());
+      const isExp =
+        t.status !== "completed" &&
+        t.status !== "cancelled" &&
+        (t.status === "expired" || (t.expiresAt && new Date(t.expiresAt) < new Date()));
       if (key === "expired") return isExp;
       if (key === "open") return t.status === "open" || t.status === "pending";
       return t.status === key && !isExp;
