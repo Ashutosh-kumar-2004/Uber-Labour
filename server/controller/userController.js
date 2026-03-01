@@ -85,6 +85,16 @@ export const createWork = async (req, res) => {
 
     await task.save();
 
+    // Broadcast to all online workers so their dashboards auto-refresh
+    try {
+      const { getIO } = await import("../services/socket.service.js");
+      getIO().emit("task_created", {
+        taskId: task._id.toString(),
+        taskType: task.taskType,
+        location: task.location,
+      });
+    } catch (_) {}
+
     res.status(201).json({
       message: "Task created successfully",
       task,

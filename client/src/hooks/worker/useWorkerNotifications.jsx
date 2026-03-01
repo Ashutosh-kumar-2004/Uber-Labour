@@ -7,9 +7,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSocket } from "../../context/SocketContext";
-import axios from "axios";
-
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
+import axiosInstance from "../../api/axios";
 
 const useWorkerNotifications = () => {
   const { socket } = useSocket();
@@ -22,9 +20,7 @@ const useWorkerNotifications = () => {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const { data } = await axios.get(`${API}/api/notifications/worker`, {
-          withCredentials: true,
-        });
+        const { data } = await axiosInstance.get("/api/notifications/worker");
         if (data.success) {
           setNotifications(
             data.notifications.map((n) => ({
@@ -99,7 +95,7 @@ const useWorkerNotifications = () => {
   const markAllRead = useCallback(async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     try {
-      await axios.patch(`${API}/api/notifications/worker/read-all`, {}, { withCredentials: true });
+      await axiosInstance.patch("/api/notifications/worker/read-all");
     } catch (err) {
       console.error("Failed to mark worker notifications as read:", err.message);
     }

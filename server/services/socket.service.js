@@ -146,19 +146,9 @@ export const initSocketServer = (io) => {
 
         /* Distance to destination */
         let distanceKm = null;
-        let hasArrived = false;
         if (task.location?.coordinates?.length === 2) {
           const [destLng, destLat] = task.location.coordinates;
           distanceKm = haversine(parsedLat, parsedLng, destLat, destLng);
-
-          /* Mark arrived if < 50 m */
-          if (distanceKm < 0.05 && task.status === "inProgress") {
-            await Task.findByIdAndUpdate(taskId, {
-              status: "arrived",
-              arrivedAt: new Date(),
-            });
-            hasArrived = true;
-          }
         }
 
         /* Emit to user's room */
@@ -170,7 +160,6 @@ export const initSocketServer = (io) => {
           speed: worker.currentSpeed,
           bearing: worker.currentBearing,
           distanceKm: distanceKm ? parseFloat(distanceKm.toFixed(3)) : null,
-          hasArrived,
           timestamp: now,
         };
 

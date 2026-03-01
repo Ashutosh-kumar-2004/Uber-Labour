@@ -123,6 +123,11 @@ const taskSchema = new mongoose.Schema(
       default: null
     },
 
+    inProgressAt: {
+      type: Date,
+      default: null   // set when worker verifies OTP → task becomes inProgress
+    },
+
     /* =======================
        OTP (ARRIVAL VERIFICATION)
        Worker taps "Arrived" → OTP emailed to user → worker types it
@@ -171,6 +176,28 @@ const taskSchema = new mongoose.Schema(
     currency: {
       type: String,
       default: "INR"
+    },
+
+    /* =======================
+       PAYMENT
+    ======================= */
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "released", "held", "refunded"],
+      default: "pending"
+    },
+
+    /* =======================
+       WORK SUMMARY (filled by worker on completion)
+    ======================= */
+    workSummary: {
+      type: String,
+      default: null
+    },
+
+    completedAt: {
+      type: Date,
+      default: null
     },
 
     /* =======================

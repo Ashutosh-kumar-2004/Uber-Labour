@@ -1,5 +1,6 @@
 import Notification from "../modal/user/Notification.js";
 import Worker from "../modal/Worker.model.js";
+import Task from "../modal/user/Task.model.js";
 
 /**
  * Create notifications in bulk (broadcast)
@@ -18,6 +19,9 @@ export const broadcastTaskAvailable = async ({ task, workerFilter = {} }) => {
     workerId: worker._id,
     taskId: task._id,
     type: "task_available",
+    title: "New Task Available",
+    message: `A new task "${task.title}" is available near you.`,
+    taskTitle: task.title,
     expiresAt: task.scheduledStartAt
   }));
 
@@ -28,11 +32,18 @@ export const broadcastTaskAvailable = async ({ task, workerFilter = {} }) => {
  * Notify winner + invalidate others
  */
 export const notifyTaskAccepted = async ({ taskId, winnerWorkerId }) => {
+  // Fetch task for title/message
+  const task = await Task.findById(taskId).select("title").lean();
+  const taskTitle = task?.title ?? "A task";
+
   // Winner notification
   await Notification.create({
     workerId: winnerWorkerId,
     taskId,
-    type: "task_assigned"
+    type: "task_assigned",
+    title: "Task Assigned",
+    message: `You have been assigned the task "${taskTitle}".`,
+    taskTitle
   });
 
   // Expire all others

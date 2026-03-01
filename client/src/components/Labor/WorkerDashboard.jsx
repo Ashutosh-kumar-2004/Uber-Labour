@@ -7,7 +7,6 @@ import useAvailableTasks from "../../hooks/worker/useAvailableTasks";
 import useAcceptTask from "../../hooks/worker/useAcceptTask";
 import useCompleteTask from "../../hooks/worker/useCompleteTask";
 import useRejectTask from "../../hooks/worker/useRejectTask";
-import ConfirmModal from "../constants/ConfirmModal";
 import useWorkerNotifications from "../../hooks/worker/useWorkerNotifications";
 import useOTPActions from "../../hooks/worker/useOTPActions";
 import TaskDetailsModal from './TaskDetailsModal';
@@ -18,6 +17,7 @@ import ErrorModal from './ErrorModal';
 import SuccessModal from './SuccessModal';
 import BannedScreen from './BannedScreen';
 import BanWarningModal from './BanWarningModal';
+import WorkSummaryModal from './WorkSummaryModal';
 import {
   Briefcase,
   Power,
@@ -84,32 +84,60 @@ const WorkerDashboard = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // ── Live elapsed-time counter for inProgress tasks ──
+  // ── Live elapsed-time counter (runs for ALL active task statuses) ──
   const [elapsed, setElapsed] = useState("");
   const timerRef = useRef(null);
 
   useEffect(() => {
     clearInterval(timerRef.current);
-    if (activeTask?.status === "inProgress" && (activeTask.otpVerifiedAt || activeTask.arrivedAt)) {
-      const startTime = new Date(activeTask.otpVerifiedAt || activeTask.arrivedAt).getTime();
-      const tick = () => {
-        const diff = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
-        const h = Math.floor(diff / 3600);
-        const m = Math.floor((diff % 3600) / 60);
-        const s = diff % 60;
-        setElapsed(
-          h > 0
-            ? `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`
-            : `${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`
-        );
-      };
-      tick();
-      timerRef.current = setInterval(tick, 1000);
-    } else {
+
+    const isActive = activeTask &&
+      ["assigned", "arrived", "inProgress"].includes(activeTask.status);
+
+    if (!isActive) {
       setElapsed("");
+      return;
     }
+
+    // Priority: inProgressAt (explicit work-start) → otpVerifiedAt → arrivedAt → acceptedAt
+    const rawStart =
+      activeTask.inProgressAt ||
+      activeTask.otpVerifiedAt ||
+      activeTask.arrivedAt ||
+      activeTask.acceptedAt;
+
+    const startTime = rawStart ? new Date(rawStart).getTime() : null;
+
+    if (!startTime || isNaN(startTime)) {
+      setElapsed("");
+      return;
+    }
+
+    const tick = () => {
+      const diff = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+      const d = Math.floor(diff / 86400);
+      const h = Math.floor((diff % 86400) / 3600);
+      const m = Math.floor((diff % 3600) / 60);
+      const s = diff % 60;
+      setElapsed(
+        d > 0
+          ? `${d}d ${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m`
+          : h > 0
+          ? `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`
+          : `${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`
+      );
+    };
+    tick();
+    timerRef.current = setInterval(tick, 1000);
+
     return () => clearInterval(timerRef.current);
-  }, [activeTask?.status, activeTask?.otpVerifiedAt, activeTask?.arrivedAt]);
+  }, [
+    activeTask?.status,
+    activeTask?.inProgressAt,
+    activeTask?.otpVerifiedAt,
+    activeTask?.arrivedAt,
+    activeTask?.acceptedAt,
+  ]);
 
   // ── Real-time GPS tracking (active only when task exists) ──
   const { isTracking, speed, bearing, workerCoords, routePath } =
@@ -238,9 +266,9 @@ const WorkerDashboard = () => {
     setShowCompleteModal(true);
   };
 
-  const confirmCompleteTask = async () => {
+  const confirmCompleteTask = async (workSummary) => {
     try {
-      await completeTask(activeTask._id);
+      await completeTask(activeTask._id, workSummary);
       setShowCompleteModal(false);
       await refetchProfile();
     } catch (err) {
@@ -314,30 +342,21 @@ const WorkerDashboard = () => {
         isActiveTask={!!activeTask && selectedTask?._id === activeTask?._id}
         onReject={() => { setSelectedTask(null); setShowBanModal(true); }}
         onNavigate={() => { setSelectedTask(null); setShowNavMap(true); }}
+        onComplete={() => { setSelectedTask(null); setShowCompleteModal(true); }}
         onMarkArrived={handleMarkArrived}
         arrivedLoading={arrivedLoading}
         activeTaskStatus={activeTask?.status}
       />
 
-      {/* ── COMPLETION CONFIRMATION MODAL ── */}
-      {showCompleteModal && activeTask && (
-        <ConfirmModal
-          isOpen={showCompleteModal}
-          onClose={() => setShowCompleteModal(false)}
-          onConfirm={confirmCompleteTask}
-          loading={completeLoading}
-          title="Complete This Task?"
-          summaryRows={[
-            { label: "Task", value: activeTask.title },
-            { label: "Payment", value: `₹${activeTask.price}`, highlight: true },
-            ...(elapsed ? [{ label: "Duration", value: elapsed }] : []),
-          ]}
-          checkboxLabel="Have you collected the cash?"
-          checkboxLabelChecked="Cash Collected"
-          checkboxDescription={<>Confirm that you have received <span className="font-black text-gray-800">₹{activeTask.price}</span> from the client before marking this task as complete.</>}
-          confirmText="Confirm"
-        />
-      )}
+      {/* ── WORK SUMMARY MODAL (completion) ── */}
+      <WorkSummaryModal
+        isOpen={showCompleteModal}
+        onClose={() => setShowCompleteModal(false)}
+        onConfirm={confirmCompleteTask}
+        loading={completeLoading}
+        task={activeTask}
+        elapsed={elapsed}
+      />
 
       {/* Top Navbar */}
       <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
@@ -587,6 +606,14 @@ const WorkerDashboard = () => {
               {/* ASSIGNED: Show "I've Arrived" button */}
               {activeTask.status === "assigned" && (
                 <div className="mt-2">
+                  {/* Elapsed timer from acceptance */}
+                  {elapsed && (
+                    <div className="flex items-center gap-2 bg-zinc-800/60 border border-zinc-700 px-4 py-3 rounded-2xl mb-3">
+                      <Timer size={16} className="text-gray-400" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Time Since Accepted</span>
+                      <span className="ml-auto text-lg font-black tracking-tight text-gray-200 font-mono">{elapsed}</span>
+                    </div>
+                  )}
                   <button
                     onClick={handleMarkArrived}
                     disabled={arrivedLoading}
@@ -608,6 +635,14 @@ const WorkerDashboard = () => {
               {/* ARRIVED: Show OTP input */}
               {activeTask.status === "arrived" && (
                 <div className="mt-2 bg-zinc-900/70 rounded-2xl border border-zinc-700 p-5">
+                  {/* Elapsed timer */}
+                  {elapsed && (
+                    <div className="flex items-center gap-2 bg-zinc-800/60 border border-zinc-700/50 px-3 py-2 rounded-xl mb-4">
+                      <Timer size={14} className="text-gray-400" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Time Since Accepted</span>
+                      <span className="ml-auto font-black tracking-tight text-gray-200 font-mono text-sm">{elapsed}</span>
+                    </div>
+                  )}
                   <p className="text-xs font-black uppercase tracking-widest text-green-400 mb-1">OTP sent to client's email</p>
                   <p className="text-gray-400 text-xs mb-4">Ask the client for the 4-digit code and enter it below to start the task.</p>
 

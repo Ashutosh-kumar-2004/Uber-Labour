@@ -7,11 +7,12 @@ import {
   IndianRupee,
   Calendar,
   ShieldCheck,
-  Navigation
+  Navigation,
+  CheckCircle
 } from 'lucide-react';
 import Map from '../../map/User/Map';
 
-const TaskDetailsModal = ({ task, onClose, onAccept, accepting, isActiveTask, onReject, onNavigate, onMarkArrived, arrivedLoading, activeTaskStatus }) => {
+const TaskDetailsModal = ({ task, onClose, onAccept, accepting, isActiveTask, onReject, onNavigate, onComplete, onMarkArrived, arrivedLoading, activeTaskStatus }) => {
   if (!task) return null;
 
   // Format date
@@ -140,14 +141,25 @@ const TaskDetailsModal = ({ task, onClose, onAccept, accepting, isActiveTask, on
           <div className="mt-auto pt-4 border-t border-gray-100">
             {isActiveTask ? (
               <>
-                {/* Active task: Navigate + Mark Arrived (if assigned) + Cancel */}
+                {/* Active task actions — vary by current status */}
                 <div className="flex gap-3">
-                  <button
-                    onClick={onNavigate}
-                    className="flex-1 bg-black text-white py-4 rounded-xl font-black uppercase tracking-widest text-sm hover:bg-zinc-800 active:scale-[0.98] transition-all shadow-xl flex items-center justify-center gap-3"
-                  >
-                    <Navigation size={18} /> Navigate
-                  </button>
+
+                  {/* inProgress: Navigate hidden, show Complete instead */}
+                  {activeTaskStatus === "inProgress" ? (
+                    <button
+                      onClick={() => { onClose(); onComplete && onComplete(); }}
+                      className="flex-1 bg-black text-white py-4 rounded-xl font-black uppercase tracking-widest text-sm hover:bg-zinc-800 active:scale-[0.98] transition-all shadow-xl flex items-center justify-center gap-3"
+                    >
+                      <CheckCircle size={18} /> Complete Task
+                    </button>
+                  ) : (
+                    <button
+                      onClick={onNavigate}
+                      className="flex-1 bg-black text-white py-4 rounded-xl font-black uppercase tracking-widest text-sm hover:bg-zinc-800 active:scale-[0.98] transition-all shadow-xl flex items-center justify-center gap-3"
+                    >
+                      <Navigation size={18} /> Navigate
+                    </button>
+                  )}
 
                   {activeTaskStatus === "assigned" && (
                     <button

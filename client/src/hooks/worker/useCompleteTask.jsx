@@ -5,11 +5,11 @@ const useCompleteTask = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const completeTask = async (taskId) => {
+    const completeTask = async (taskId, workSummary = "") => {
         setLoading(true);
         setError(null);
         try {
-            const response = await axiosInstance.post(`/api/worker/tasks/${taskId}/complete`);
+            const response = await axiosInstance.post(`/api/worker/tasks/${taskId}/complete`, { workSummary });
             setLoading(false);
             return response.data;
         } catch (err) {

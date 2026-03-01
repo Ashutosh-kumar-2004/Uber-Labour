@@ -12,9 +12,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSocket } from "../../context/SocketContext";
-import axios from "axios";
-
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
+import axiosInstance from "../../api/axios";
 
 const useTaskNotifications = () => {
   const { socket } = useSocket();
@@ -29,9 +27,7 @@ const useTaskNotifications = () => {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const { data } = await axios.get(`${API}/api/notifications`, {
-          withCredentials: true,
-        });
+        const { data } = await axiosInstance.get("/api/notifications");
         if (data.success) {
           setNotifications(
             data.notifications.map((n) => ({
@@ -120,7 +116,7 @@ const useTaskNotifications = () => {
   const markAllRead = useCallback(async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     try {
-      await axios.patch(`${API}/api/notifications/read-all`, {}, { withCredentials: true });
+      await axiosInstance.patch("/api/notifications/read-all");
     } catch (err) {
       console.error("Failed to mark notifications as read:", err.message);
     }
