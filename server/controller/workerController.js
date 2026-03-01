@@ -16,8 +16,10 @@ import { sendOTPEmail } from "../services/email.service.js";
 import { createNotification } from "../controller/notificationController.js";
 import {
   bearingDeg,
+  FINE_AMOUNT_WORKER,
   getPublicIdFromUrl,
   haversineKm,
+  NO_SHOW_BAN_MS_WORKER,
 } from "../constants/constant.js";
 
 export const getWorkerProfile = async (req, res) => {
@@ -297,8 +299,8 @@ export const rejectTask = async (req, res) => {
     /* =========================
        APPLY PENALTY (FINE + BAN)
     ========================= */
-    const banDurationHours = 6;
-    const fineAmount = 50;
+    const banDurationHours = FINE_AMOUNT_WORKER;
+    const fineAmount = NO_SHOW_BAN_MS_WORKER;
 
     const banExpiresAt = new Date();
     banExpiresAt.setHours(banExpiresAt.getHours() + banDurationHours);

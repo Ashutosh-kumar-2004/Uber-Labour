@@ -7,8 +7,19 @@ export const REPORT_REASONS = [
   "Other",
 ];
 
+// user constant
+export const ACTIVE_STATUSES = new Set(["assigned", "inProgress", "arrived"]);
+export const CANCELLATION_FINE = 100; // ₹100
+export const CANCELLATION_BAN_MS = 60 * 60 * 1000; // 6 HOURS
 
-// Helper function to extract public ID from Cloudinary URL 
+// user constants ends
+
+// worker constants
+export const FINE_AMOUNT_WORKER = 50; // ₹100 fine for no-show or cancellation
+export const NO_SHOW_BAN_MS_WORKER = 6; // 6hrs ban for cancellation
+// worker constants
+
+// Helper function to extract public ID from Cloudinary URL
 export const getPublicIdFromUrl = (url) => {
   try {
     const parts = url.split("/");
