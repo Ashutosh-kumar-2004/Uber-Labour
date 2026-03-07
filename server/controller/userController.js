@@ -340,6 +340,51 @@ export const getTaskReview = async (req, res) => {
 };
 
 /* ══════════════════════════════════════════════════
+   GET MY REVIEWS — paginated list of reviews the user submitted
+   GET /api/user/reviews?page=1&limit=10
+══════════════════════════════════════════════════ */
+export const getMyReviews = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(50, parseInt(req.query.limit) || 10);
+    const skip  = (page - 1) * limit;
+
+    const [reviews, total] = await Promise.all([
+      Review.find({ userId })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate(
+          "taskId",
+          "title taskType subcategory description address price scheduledStartAt inProgressAt completedAt workSummary images"
+        )
+        .populate({
+          path: "workerId",
+          select: "rating completedTasks profileImage userId",
+          populate: { path: "userId", select: "name" },
+        }),
+      Review.countDocuments({ userId }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      reviews,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        hasMore: skip + reviews.length < total,
+      },
+    });
+  } catch (error) {
+    console.error("Get My Reviews Error:", error);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+/* ══════════════════════════════════════════════════
    SUBMIT REPORT — user reports a worker
    POST /api/user/task/:taskId/report
    Body: { reason: string, description?: string }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -13,6 +13,7 @@ import {
   Zap,
   X as XIcon,
   LogOut,
+  Menu,
 } from "lucide-react";
 import CreateTask from "./CreateTask.jsx";
 import LocationPermissionModal from "./LocationPermissionModal.jsx";
@@ -24,10 +25,14 @@ import useTaskNotifications from "../../hooks/user/useTaskNotifications.jsx";
 import { useAuth } from "../context/AuthContext";
 import MyTasksSection from "./MyTasksSection.jsx";
 
+// Lazy load Sidebar — only loaded when user first toggles it open
+const Sidebar = lazy(() => import("./Sidebar.jsx"));
+
 const Dashboard = () => {
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [loadingLocation, setLoadingLocation] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const dispatch = useDispatch();
   const location = useSelector((state) => state.user.location);
 
@@ -156,7 +161,7 @@ const Dashboard = () => {
             </button>
 
             {showProfileMenu && (
-              <div className="absolute right-0 top-12 z-[200] w-52 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden py-1">
+              <div className="absolute right-0 top-12 z-200 w-52 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden py-1">
                 <div className="px-4 py-3 border-b border-gray-100">
                   <p className="text-sm font-black text-gray-900">{user?.name || "User"}</p>
                   <p className="text-[10px] text-gray-400 font-medium truncate">{user?.email || ""}</p>
@@ -179,19 +184,28 @@ const Dashboard = () => {
               </div>
             )}
           </div>
+
+          {/* ── Sidebar Toggle (hamburger) ── */}
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="w-9 h-9 border border-gray-200 rounded-full flex items-center justify-center hover:bg-gray-50 transition-all cursor-pointer ml-1"
+            title="Open panel"
+          >
+            <Menu size={18} />
+          </button>
         </div>
       </nav>
 
-      {/* ── NOTIFICATION PANEL (slides down from bell) ── */}
+      {/* ── NOTIFICATION PANEL (fixed below sticky navbar) ── */}
       {showNotifPanel && (
-        <div className="absolute right-6 top-[72px] z-[200] w-96 max-h-[420px] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in">
+        <div className="fixed right-6 top-18 z-200 w-96 max-h-105 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in">
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
             <span className="text-xs font-black uppercase tracking-widest text-gray-900">Notifications</span>
             <button onClick={() => setShowNotifPanel(false)}>
               <XIcon size={16} className="text-gray-400 hover:text-black" />
             </button>
           </div>
-          <div className="overflow-y-auto max-h-[360px] divide-y divide-gray-50">
+          <div className="overflow-y-auto max-h-90 divide-y divide-gray-50">
             {notifications.length === 0 ? (
               <div className="p-8 text-center text-gray-400">
                 <Bell size={28} className="mx-auto mb-2 text-gray-300" />
@@ -225,10 +239,10 @@ const Dashboard = () => {
 
       {/* ── ARRIVAL POPUP TOAST ── */}
       {popup && (
-        <div className="fixed top-6 right-6 z-[9000] animate-slide-in-right">
-          <div className={`w-96 rounded-2xl shadow-2xl border overflow-hidden ${popup.type === 'arrived' ? 'bg-gradient-to-r from-green-50 to-white border-green-200'
-            : popup.type === 'completed' ? 'bg-gradient-to-r from-amber-50 to-white border-amber-200'
-              : 'bg-gradient-to-r from-blue-50 to-white border-blue-200'
+        <div className="fixed top-6 right-6 z-9000 animate-slide-in-right">
+          <div className={`w-96 rounded-2xl shadow-2xl border overflow-hidden ${popup.type === 'arrived' ? 'bg-linear-to-r from-green-50 to-white border-green-200'
+            : popup.type === 'completed' ? 'bg-linear-to-r from-amber-50 to-white border-amber-200'
+              : 'bg-linear-to-r from-blue-50 to-white border-blue-200'
             }`}>
             {/* Close button */}
             <button onClick={dismissPopup}
@@ -286,7 +300,7 @@ const Dashboard = () => {
       )}
 
       {/* Hero Section */}
-      <main className="flex-grow max-w-7xl mx-auto w-full px-6 py-12">
+      <main className="grow max-w-7xl mx-auto w-full px-6 py-12">
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
           <header className="text-center md:text-left">
             <h1 className="text-5xl font-black mb-3 uppercase tracking-tighter">
@@ -333,7 +347,7 @@ const Dashboard = () => {
               />
 
               {/* Overlay Gradient */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent opacity-80 group-hover:opacity-90 transition-opacity"></div>
+              <div className="absolute inset-0 bg-linear-to-t from-black via-black/30 to-transparent opacity-80 group-hover:opacity-90 transition-opacity"></div>
 
               {/* Rating Badge (Top Right) */}
               <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md px-2 py-1 rounded-md flex items-center gap-1 shadow-sm transition-transform group-hover:scale-110">
@@ -344,7 +358,7 @@ const Dashboard = () => {
               {/* Text Content */}
               <div className="absolute bottom-0 left-0 p-6 w-full">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="h-[1px] w-6 bg-gray-400"></div>
+                  <div className="h-px w-6 bg-gray-400"></div>
                   <span className="text-[10px] font-bold text-gray-300 uppercase tracking-[0.2em]">
                     {item.completed} Jobs
                   </span>
@@ -411,12 +425,20 @@ const Dashboard = () => {
 
       {/* CREATE TASK MODAL OVERLAY */}
       {isCreateTaskOpen && (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center">
+        <div className="fixed inset-0 z-100 bg-black/50 backdrop-blur-sm flex items-center justify-center">
           <div className="w-full h-full">
             <CreateTask onClose={handleCreateTaskClose} />
           </div>
         </div>
       )}
+
+      {/* ── SIDEBAR (lazy loaded) ── */}
+      <Suspense fallback={null}>
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+        />
+      </Suspense>
     </div>
   );
 };

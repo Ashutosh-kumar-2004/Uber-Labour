@@ -1,38 +1,60 @@
-import React, { createContext, useState, useContext } from "react";
+import React, { createContext, useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { setUser, setToken, clearUser } from "../../redux/slices/userSlice.jsx";
+import axiosInstance from "../../api/axios.jsx";
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUserState] = useState(() => {
-    const storedUser = localStorage.getItem("user");
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
+  // No localStorage — user is in React state only.
+  // On refresh the httpOnly cookie is re-verified via /api/auth/me.
+  const [user, setUserState] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true); // true while /me is in-flight
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
+  /* ── Restore session from httpOnly cookie on every page load ── */
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const res = await axiosInstance.get("/api/auth/me");
+        if (res.data?.success) {
+          setUserState(res.data.user);
+          dispatch(setUser(res.data.user));
+          // Token stays in Redux (already sent by /me response cookie; no
+          // need to store it separately \u2014 axios withCredentials handles it)
+        }
+      } catch {
+        // Cookie missing / expired \u2014 user is simply not logged in
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+    restoreSession();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const login = (userData) => {
     setUserState(userData.user);
-    localStorage.setItem("user", JSON.stringify(userData.user));
-
-    /* Store token in Redux — no longer in localStorage */
+    // Server already set the httpOnly cookie; store token in Redux for
+    // the Authorization header fallback (socket handshake, etc.)
     if (userData.token) {
       dispatch(setToken(userData.token));
     }
     dispatch(setUser(userData.user));
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await axiosInstance.post("/api/auth/logout");
+    } catch { /* ignore */ }
     setUserState(null);
-    localStorage.removeItem("user");
     dispatch(clearUser());
     navigate("/login");
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, authLoading }}>
       {children}
     </AuthContext.Provider>
   );

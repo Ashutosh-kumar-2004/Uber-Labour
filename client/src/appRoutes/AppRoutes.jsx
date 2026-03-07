@@ -1,32 +1,56 @@
-import { Routes, Route } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "../components/context/AuthContext";
+
 import SignupPage from "../components/Auth/Signup";
 import LoginPage from "../components/Auth/LoginPage";
 import ForgotPassword from "../components/Auth/ForgotPassword";
-import User_Dashboard from "../components/User/User_Dashboard";
-import CreateTask from "../components/User/CreateTask";
-import Registration from "../components/Labor/Registration";
-import WorkerDashboard from "../components/Labor/WorkerDashboard";
-import WorkerProfile from "../components/Labor/WorkerProfile";
-import UserProfile from "../components/User/UserProfile";
+import PageLoader from "../components/constants/PageLoader";
+
+const User_Dashboard = lazy(() => import("../components/User/User_Dashboard"));
+const CreateTask = lazy(() => import("../components/User/CreateTask"));
+const UserProfile = lazy(() => import("../components/User/UserProfile"));
+const Registration = lazy(() => import("../components/Labor/Registration"));
+const WorkerDashboard = lazy(() => import("../components/Labor/WorkerDashboard"));
+const WorkerProfile = lazy(() => import("../components/Labor/WorkerProfile"));
+const MyReviews = lazy(() => import("../components/User/MyReviews"));
+
+/* Redirects unauthenticated users to /login, preserving the attempted path */
+const ProtectedRoute = ({ children }) => {
+  const { user } = useAuth();
+  const location = useLocation();
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  return children;
+};
+
 const AppRoutes = () => {
+  const { authLoading } = useAuth();
+
+  if (authLoading) return <PageLoader />;
+
   return (
-    <Routes>
-      <Route path="/signup" element={<SignupPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        <Route path="*" element={<LoginPage />} />
 
-      {/* user routes */}
-      <Route path="/user" element={<User_Dashboard />} />
-      <Route path="/user/profile" element={<UserProfile />} />
-      <Route path="/user/hire" element={<CreateTask />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
-      {/* Labor routes */}
-      <Route path="/worker" element={<Registration />} />
-      <Route path="/worker/dashboard" element={<WorkerDashboard />} />
-      <Route path="/worker/profile" element={<WorkerProfile />} />
-      {/* Default Route */}
-      <Route path="*" element={<LoginPage />} />
-    </Routes>
+        {/* user routes - require login */}
+        <Route path="/user"             element={<ProtectedRoute><User_Dashboard /></ProtectedRoute>} />
+        <Route path="/user/profile"     element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
+        <Route path="/user/hire"        element={<ProtectedRoute><CreateTask /></ProtectedRoute>} />
+        <Route path="/user/reviews"     element={<ProtectedRoute><MyReviews /></ProtectedRoute>} />
+
+        {/* Labor routes - require login */}
+        <Route path="/worker"           element={<ProtectedRoute><Registration /></ProtectedRoute>} />
+        <Route path="/worker/dashboard" element={<ProtectedRoute><WorkerDashboard /></ProtectedRoute>} />
+        <Route path="/worker/profile"   element={<ProtectedRoute><WorkerProfile /></ProtectedRoute>} />
+      </Routes>
+    </Suspense>
   );
 };
 

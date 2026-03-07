@@ -3,6 +3,7 @@ import http from "http";
 import { Server as SocketIOServer } from "socket.io";
 import "dotenv/config";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import connectDB from "./config/db.js";
@@ -26,6 +27,7 @@ app.use(
 );
 
 app.use(express.json());
+app.use(cookieParser());
 
 /* ── HTTP Routes ─────────────────────────────────── */
 app.use("/api/auth", authRoutes);
