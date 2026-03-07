@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import useSetWorkerAvailability from "../../hooks/worker/useSetWorkerAvailability";
 import useWorkerProfile from "../../hooks/worker/useWorkerProfile";
 import useAvailableTasks from "../../hooks/worker/useAvailableTasks";
@@ -9,15 +9,17 @@ import useCompleteTask from "../../hooks/worker/useCompleteTask";
 import useRejectTask from "../../hooks/worker/useRejectTask";
 import useWorkerNotifications from "../../hooks/worker/useWorkerNotifications";
 import useOTPActions from "../../hooks/worker/useOTPActions";
-import TaskDetailsModal from './TaskDetailsModal';
-import WorkerNavigationMap from './WorkerNavigationMap';
-import useLocationBroadcast, { bearingToLabel } from "../../hooks/worker/useLocationBroadcast";
+import TaskDetailsModal from "./TaskDetailsModal";
+import WorkerNavigationMap from "./WorkerNavigationMap";
+import useLocationBroadcast, {
+  bearingToLabel,
+} from "../../hooks/worker/useLocationBroadcast";
 import { DISTANCE_OPTIONS } from "../../constants/task.constants";
-import ErrorModal from './ErrorModal';
-import SuccessModal from './SuccessModal';
-import BannedScreen from './BannedScreen';
-import BanWarningModal from './BanWarningModal';
-import WorkSummaryModal from './WorkSummaryModal';
+import ErrorModal from "./ErrorModal";
+import SuccessModal from "./SuccessModal";
+import BannedScreen from "./BannedScreen";
+import BanWarningModal from "./BanWarningModal";
+import WorkSummaryModal from "./WorkSummaryModal";
 import {
   Briefcase,
   Power,
@@ -38,20 +40,48 @@ import {
   IndianRupee,
   Compass,
   LogOut,
-  User
-} from 'lucide-react';
-import { Timer } from 'lucide-react';
+  User,
+  Menu,
+  Search,
+} from "lucide-react";
+import { Timer } from "lucide-react";
+
+const WorkerSidebar = lazy(() => import("./WorkerSidebar.jsx"));
 
 // ... WorkerDashboard component ...
 const WorkerDashboard = () => {
   const navigate = useNavigate();
   // ... hooks ...
-  const { worker, activeTask, loading: profileLoading, refetch: refetchProfile } = useWorkerProfile();
-  const { setAvailability, loading: toggleLoading } = useSetWorkerAvailability();
-  const { tasks, loading: tasksLoading, error: tasksError, fetchTasks, setError: setTasksError } = useAvailableTasks();
-  const { acceptTask, loading: acceptLoading, error: acceptError } = useAcceptTask();
-  const { completeTask, loading: completeLoading, error: completeError } = useCompleteTask();
-  const { rejectTask, loading: rejectLoading, error: rejectError } = useRejectTask();
+  const {
+    worker,
+    activeTask,
+    loading: profileLoading,
+    refetch: refetchProfile,
+  } = useWorkerProfile();
+  const { setAvailability, loading: toggleLoading } =
+    useSetWorkerAvailability();
+  const {
+    tasks,
+    loading: tasksLoading,
+    error: tasksError,
+    fetchTasks,
+    setError: setTasksError,
+  } = useAvailableTasks();
+  const {
+    acceptTask,
+    loading: acceptLoading,
+    error: acceptError,
+  } = useAcceptTask();
+  const {
+    completeTask,
+    loading: completeLoading,
+    error: completeError,
+  } = useCompleteTask();
+  const {
+    rejectTask,
+    loading: rejectLoading,
+    error: rejectError,
+  } = useRejectTask();
 
   const [isOnline, setIsOnline] = useState(false);
   const [selectedDistance, setSelectedDistance] = useState(10);
@@ -64,24 +94,36 @@ const WorkerDashboard = () => {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const profileMenuRef = useRef(null);
   // OTP state
   const [otpInput, setOtpInput] = useState("");
   const [otpError, setOtpError] = useState(null);
   const [otpSuccess, setOtpSuccess] = useState(false);
-  const { markArrived, submitOTP, arrivedLoading, otpLoading } = useOTPActions();
-  const { notifications: workerNotifs, popup: workerPopup, dismissPopup: dismissWorkerPopup, unreadCount: workerUnread, markAllRead: markAllReadWorker } = useWorkerNotifications();
+  const { markArrived, submitOTP, arrivedLoading, otpLoading } =
+    useOTPActions();
+  const {
+    notifications: workerNotifs,
+    popup: workerPopup,
+    dismissPopup: dismissWorkerPopup,
+    unreadCount: workerUnread,
+    markAllRead: markAllReadWorker,
+  } = useWorkerNotifications();
   const { logout } = useAuth();
 
   // Close profile menu on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(e.target)
+      ) {
         setShowProfileMenu(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   // ── Live elapsed-time counter (runs for ALL active task statuses) ──
@@ -91,7 +133,8 @@ const WorkerDashboard = () => {
   useEffect(() => {
     clearInterval(timerRef.current);
 
-    const isActive = activeTask &&
+    const isActive =
+      activeTask &&
       ["assigned", "arrived", "inProgress"].includes(activeTask.status);
 
     if (!isActive) {
@@ -123,8 +166,8 @@ const WorkerDashboard = () => {
         d > 0
           ? `${d}d ${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m`
           : h > 0
-          ? `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`
-          : `${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`
+            ? `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`
+            : `${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`,
       );
     };
     tick();
@@ -154,7 +197,8 @@ const WorkerDashboard = () => {
   }, [worker, selectedDistance, fetchTasks]);
 
   // Derived state for ban
-  const isBanned = worker?.banExpiresAt && new Date(worker.banExpiresAt) > new Date();
+  const isBanned =
+    worker?.banExpiresAt && new Date(worker.banExpiresAt) > new Date();
   const banExpiresAt = worker?.banExpiresAt;
 
   // If banned, show BannedScreen
@@ -163,16 +207,22 @@ const WorkerDashboard = () => {
   }
 
   // If not verified
-  if (worker && worker.status !== 'verified') {
+  if (worker && worker.status !== "verified") {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className="bg-white p-8 rounded-3xl shadow-xl maxWidth-md text-center">
           <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <ShieldCheck className="text-yellow-600" size={40} />
           </div>
-          <h2 className="text-2xl font-black uppercase tracking-tighter mb-2">Verification Pending</h2>
-          <p className="text-gray-500 font-medium">Your profile is currently under review or rejected.</p>
-          <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mt-4">Status: {worker.status}</p>
+          <h2 className="text-2xl font-black uppercase tracking-tighter mb-2">
+            Verification Pending
+          </h2>
+          <p className="text-gray-500 font-medium">
+            Your profile is currently under review or rejected.
+          </p>
+          <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mt-4">
+            Status: {worker.status}
+          </p>
           <button
             onClick={() => window.location.reload()}
             className="mt-6 px-6 py-3 bg-black text-white rounded-xl font-bold uppercase tracking-widest hover:bg-zinc-800"
@@ -181,13 +231,15 @@ const WorkerDashboard = () => {
           </button>
         </div>
       </div>
-    )
+    );
   }
 
   const handleToggleAvailability = async () => {
     // Check ban first
     if (isBanned) {
-      alert(`You are banned until ${new Date(banExpiresAt).toLocaleTimeString()}`);
+      alert(
+        `You are banned until ${new Date(banExpiresAt).toLocaleTimeString()}`,
+      );
       return;
     }
 
@@ -218,7 +270,11 @@ const WorkerDashboard = () => {
 
   const handleCustomDistanceSubmit = (e) => {
     e.preventDefault();
-    if (customDistance && !isNaN(customDistance) && Number(customDistance) > 0) {
+    if (
+      customDistance &&
+      !isNaN(customDistance) &&
+      Number(customDistance) > 0
+    ) {
       setIsCustomDistance(true);
       setSelectedDistance(Number(customDistance));
       if (worker && worker.currentLocation) {
@@ -234,11 +290,14 @@ const WorkerDashboard = () => {
     const [lng2, lat2] = taskLocation.coordinates;
 
     const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const d = R * c;
     return d.toFixed(1);
@@ -250,7 +309,10 @@ const WorkerDashboard = () => {
       setSelectedTask(null);
       if (worker && worker.currentLocation) {
         const [lng, lat] = worker.currentLocation.coordinates;
-        const distance = isCustomDistance && customDistance ? parseFloat(customDistance) : selectedDistance;
+        const distance =
+          isCustomDistance && customDistance
+            ? parseFloat(customDistance)
+            : selectedDistance;
         fetchTasks({ lat, lng, distance });
       }
       await refetchProfile();
@@ -273,7 +335,10 @@ const WorkerDashboard = () => {
       await refetchProfile();
     } catch (err) {
       console.error(err);
-      alert("Failed to complete task: " + (err.response?.data?.message || err.message));
+      alert(
+        "Failed to complete task: " +
+          (err.response?.data?.message || err.message),
+      );
     }
   };
 
@@ -285,7 +350,10 @@ const WorkerDashboard = () => {
       await refetchProfile();
     } catch (err) {
       console.error(err);
-      alert("Failed to reject task: " + (err.response?.data?.message || err.message));
+      alert(
+        "Failed to reject task: " +
+          (err.response?.data?.message || err.message),
+      );
     }
   };
 
@@ -314,7 +382,7 @@ const WorkerDashboard = () => {
       await refetchProfile(); // updates task to inProgress
     } catch (err) {
       if (err.expired) {
-        setOtpError("⏱ Code expired. Tap \"I've Arrived\" again to resend.");
+        setOtpError('⏱ Code expired. Tap "I\'ve Arrived" again to resend.');
       } else {
         setOtpError(err.message || "Incorrect code. Try again.");
       }
@@ -323,8 +391,23 @@ const WorkerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-black relative">
-      <ErrorModal error={tasksError || acceptError || completeError || rejectError} onClose={() => setTasksError(null)} />
-      <SuccessModal isOpen={showSuccessModal} onClose={() => setShowSuccessModal(false)} task={activeTask} />
+      <ErrorModal
+        error={tasksError || acceptError || completeError || rejectError}
+        onClose={() => setTasksError(null)}
+      />
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        task={activeTask}
+      />
+
+      {/* Worker Sidebar */}
+      <Suspense fallback={null}>
+        <WorkerSidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+        />
+      </Suspense>
       <BanWarningModal
         isOpen={showBanModal}
         onClose={() => setShowBanModal(false)}
@@ -340,9 +423,18 @@ const WorkerDashboard = () => {
         loading={acceptLoading}
         workerLocation={worker?.currentLocation}
         isActiveTask={!!activeTask && selectedTask?._id === activeTask?._id}
-        onReject={() => { setSelectedTask(null); setShowBanModal(true); }}
-        onNavigate={() => { setSelectedTask(null); setShowNavMap(true); }}
-        onComplete={() => { setSelectedTask(null); setShowCompleteModal(true); }}
+        onReject={() => {
+          setSelectedTask(null);
+          setShowBanModal(true);
+        }}
+        onNavigate={() => {
+          setSelectedTask(null);
+          setShowNavMap(true);
+        }}
+        onComplete={() => {
+          setSelectedTask(null);
+          setShowCompleteModal(true);
+        }}
         onMarkArrived={handleMarkArrived}
         arrivedLoading={arrivedLoading}
         activeTaskStatus={activeTask?.status}
@@ -364,7 +456,9 @@ const WorkerDashboard = () => {
           <div className="bg-black text-white p-2 rounded-xl">
             <Briefcase size={20} />
           </div>
-          <span className="text-lg font-black tracking-tighter uppercase">Workify<span className="text-gray-400">Pro</span></span>
+          <span className="text-lg font-black tracking-tighter uppercase">
+            Workify<span className="text-gray-400">Pro</span>
+          </span>
         </div>
 
         <div className="flex items-center gap-6">
@@ -373,20 +467,31 @@ const WorkerDashboard = () => {
             {isBanned ? (
               <div className="px-3 py-1 bg-red-100 text-red-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-red-200 flex items-center gap-1">
                 <AlertTriangle size={12} />
-                Banned until {new Date(banExpiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                Banned until{" "}
+                {new Date(banExpiresAt).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
               </div>
             ) : (
               <>
-                <span className={`text-[10px] font-black uppercase tracking-widest ${isOnline ? 'text-green-600' : 'text-gray-400'}`}>
-                  {isOnline ? 'Online' : 'Offline'}
+                <span
+                  className={`text-[10px] font-black uppercase tracking-widest ${isOnline ? "text-green-600" : "text-gray-400"}`}
+                >
+                  {isOnline ? "Online" : "Offline"}
                 </span>
                 <button
                   onClick={handleToggleAvailability}
                   disabled={toggleLoading || profileLoading}
-                  className={`w-14 h-8 rounded-full flex items-center p-1 transition-all duration-300 ${isOnline ? 'bg-black' : 'bg-gray-200'} ${toggleLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`w-14 h-8 rounded-full flex items-center p-1 transition-all duration-300 ${isOnline ? "bg-black" : "bg-gray-200"} ${toggleLoading ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
-                  <div className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-300 ${isOnline ? 'translate-x-6' : 'translate-x-0'} flex items-center justify-center`}>
-                    <Power size={12} className={isOnline ? 'text-black' : 'text-gray-300'} />
+                  <div
+                    className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-300 ${isOnline ? "translate-x-6" : "translate-x-0"} flex items-center justify-center`}
+                  >
+                    <Power
+                      size={12}
+                      className={isOnline ? "text-black" : "text-gray-300"}
+                    />
                   </div>
                 </button>
               </>
@@ -397,93 +502,89 @@ const WorkerDashboard = () => {
 
           {/* Notification Bell */}
           <button
-            onClick={() => { setShowNotifPanel((p) => !p); markAllReadWorker(); }}
+            onClick={() => {
+              setShowNotifPanel((p) => !p);
+              markAllReadWorker();
+            }}
             className="relative p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
           >
             <Bell size={20} className="text-gray-600" />
             {workerUnread > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center shadow-md animate-bounce"
-                style={{ minWidth: 18, height: 18 }}>
+              <span
+                className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center shadow-md animate-bounce"
+                style={{ minWidth: 18, height: 18 }}
+              >
                 {workerUnread}
               </span>
             )}
           </button>
 
-          {/* Profile */}
-          <div className="relative" ref={profileMenuRef}>
-            <div
-              onClick={() => setShowProfileMenu((p) => !p)}
-              className="flex items-center gap-3 pl-2 cursor-pointer hover:opacity-80 transition-opacity"
-            >
-              <div className="w-10 h-10 bg-gray-200 rounded-full overflow-hidden border border-gray-100 shadow-sm">
-                <div className="w-full h-full flex items-center justify-center bg-zinc-100 text-zinc-400 font-black">
-                  {worker?.name?.[0] || "U"}
-                </div>
-              </div>
-              <div className="hidden md:block">
-                <p className="text-xs font-bold uppercase tracking-wide">{worker?.name || "Worker"}</p>
-                <p className="text-[10px] text-gray-400 font-medium">Level 1 Pro</p>
-              </div>
-            </div>
-
-            {/* Dropdown */}
-            {showProfileMenu && (
-              <div className="absolute right-0 top-14 z-[200] w-52 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden py-1 animate-in">
-                <div className="px-4 py-3 border-b border-gray-100">
-                  <p className="text-sm font-black text-gray-900">{worker?.name || "Worker"}</p>
-                  <p className="text-[10px] text-gray-400 font-medium truncate">{worker?.email || ""}</p>
-                </div>
-                <button
-                  onClick={() => { setShowProfileMenu(false); navigate('/worker/profile'); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <User size={16} className="text-gray-400" />
-                  <span className="font-bold">Profile</span>
-                </button>
-                <div className="h-px bg-gray-100 mx-3"></div>
-                <button
-                  onClick={() => { setShowProfileMenu(false); logout(); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                >
-                  <LogOut size={16} className="text-red-400" />
-                  <span className="font-bold">Logout</span>
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Hamburger — opens sidebar */}
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+          >
+            <Menu size={20} className="text-gray-600" />
+          </button>
         </div>
       </nav>
 
       {/* ── WORKER NOTIFICATION PANEL ── */}
       {showNotifPanel && (
-        <div className="absolute right-6 top-[72px] z-[200] w-96 max-h-[420px] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in">
+        <div className="fixed right-6 top-18 z-200 w-96 max-h-105 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in">
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-            <span className="text-xs font-black uppercase tracking-widest text-gray-900">Notifications</span>
+            <span className="text-xs font-black uppercase tracking-widest text-gray-900">
+              Notifications
+            </span>
             <button onClick={() => setShowNotifPanel(false)}>
               <X size={16} className="text-gray-400 hover:text-black" />
             </button>
           </div>
-          <div className="overflow-y-auto max-h-[360px] divide-y divide-gray-50">
+          <div className="overflow-y-auto max-h-90 divide-y divide-gray-50">
             {workerNotifs.length === 0 ? (
               <div className="p-8 text-center text-gray-400">
                 <Bell size={28} className="mx-auto mb-2 text-gray-300" />
-                <p className="text-xs font-bold uppercase tracking-widest">No notifications yet</p>
+                <p className="text-xs font-bold uppercase tracking-widest">
+                  No notifications yet
+                </p>
               </div>
             ) : (
               workerNotifs.map((n) => (
-                <div key={n.id} className={`px-5 py-4 flex gap-3 ${!n.read ? 'bg-blue-50/40' : ''}`}>
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${n.type === 'task_assigned' ? 'bg-green-100 text-green-600'
-                    : n.type === 'task_cancelled' ? 'bg-red-100 text-red-600'
-                      : n.type === 'completed' ? 'bg-amber-100 text-amber-600'
-                        : 'bg-blue-100 text-blue-600'
-                    }`}>
-                    {n.type === 'task_assigned' ? <Briefcase size={16} /> : n.type === 'task_cancelled' ? <AlertTriangle size={16} /> : <Zap size={16} />}
+                <div
+                  key={n.id}
+                  className={`px-5 py-4 flex gap-3 ${!n.read ? "bg-blue-50/40" : ""}`}
+                >
+                  <div
+                    className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                      n.type === "task_assigned"
+                        ? "bg-green-100 text-green-600"
+                        : n.type === "task_cancelled"
+                          ? "bg-red-100 text-red-600"
+                          : n.type === "completed"
+                            ? "bg-amber-100 text-amber-600"
+                            : "bg-blue-100 text-blue-600"
+                    }`}
+                  >
+                    {n.type === "task_assigned" ? (
+                      <Briefcase size={16} />
+                    ) : n.type === "task_cancelled" ? (
+                      <AlertTriangle size={16} />
+                    ) : (
+                      <Zap size={16} />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-black text-gray-900 leading-tight">{n.title}</p>
-                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{n.message}</p>
+                    <p className="text-sm font-black text-gray-900 leading-tight">
+                      {n.title}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                      {n.message}
+                    </p>
                     <p className="text-[10px] text-gray-400 font-bold mt-1">
-                      {new Date(n.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(n.time).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </p>
                   </div>
                 </div>
@@ -495,31 +596,58 @@ const WorkerDashboard = () => {
 
       {/* ── WORKER POPUP TOAST ── */}
       {workerPopup && (
-        <div className="fixed top-6 right-6 z-[9000] animate-slide-in-right">
-          <div className={`w-96 rounded-2xl shadow-2xl border overflow-hidden ${workerPopup.type === 'task_assigned' ? 'bg-gradient-to-r from-green-50 to-white border-green-200'
-            : workerPopup.type === 'task_cancelled' ? 'bg-gradient-to-r from-red-50 to-white border-red-200'
-              : 'bg-gradient-to-r from-blue-50 to-white border-blue-200'
-            }`}>
-            <button onClick={dismissWorkerPopup}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 z-10">
+        <div className="fixed top-6 right-6 z-9000 animate-slide-in-right">
+          <div
+            className={`w-96 rounded-2xl shadow-2xl border overflow-hidden ${
+              workerPopup.type === "task_assigned"
+                ? "bg-linear-to-r from-green-50 to-white border-green-200"
+                : workerPopup.type === "task_cancelled"
+                  ? "bg-linear-to-r from-red-50 to-white border-red-200"
+                  : "bg-linear-to-r from-blue-50 to-white border-blue-200"
+            }`}
+          >
+            <button
+              onClick={dismissWorkerPopup}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 z-10"
+            >
               <X size={16} />
             </button>
             <div className="p-5 flex gap-4">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${workerPopup.type === 'task_assigned' ? 'bg-green-500 text-white'
-                : workerPopup.type === 'task_cancelled' ? 'bg-red-500 text-white'
-                  : 'bg-blue-500 text-white'
-                }`}>
-                {workerPopup.type === 'task_assigned' ? <Briefcase size={22} /> : workerPopup.type === 'task_cancelled' ? <AlertTriangle size={22} /> : <Zap size={22} />}
+              <div
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${
+                  workerPopup.type === "task_assigned"
+                    ? "bg-green-500 text-white"
+                    : workerPopup.type === "task_cancelled"
+                      ? "bg-red-500 text-white"
+                      : "bg-blue-500 text-white"
+                }`}
+              >
+                {workerPopup.type === "task_assigned" ? (
+                  <Briefcase size={22} />
+                ) : workerPopup.type === "task_cancelled" ? (
+                  <AlertTriangle size={22} />
+                ) : (
+                  <Zap size={22} />
+                )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-black text-gray-900 text-sm uppercase tracking-tight">{workerPopup.title}</p>
-                <p className="text-xs text-gray-500 mt-1 leading-relaxed">{workerPopup.message}</p>
+                <p className="font-black text-gray-900 text-sm uppercase tracking-tight">
+                  {workerPopup.title}
+                </p>
+                <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                  {workerPopup.message}
+                </p>
               </div>
             </div>
-            <div className={`h-1 ${workerPopup.type === 'task_assigned' ? 'bg-green-400'
-              : workerPopup.type === 'task_cancelled' ? 'bg-red-400'
-                : 'bg-blue-400'
-              } animate-shrink-bar`} />
+            <div
+              className={`h-1 ${
+                workerPopup.type === "task_assigned"
+                  ? "bg-green-400"
+                  : workerPopup.type === "task_cancelled"
+                    ? "bg-red-400"
+                    : "bg-blue-400"
+              } animate-shrink-bar`}
+            />
           </div>
           <style>{`
             @keyframes slideInRight { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -531,7 +659,6 @@ const WorkerDashboard = () => {
       )}
 
       <main className="max-w-6xl mx-auto w-full p-6 space-y-8">
-
         {/* ── Worker Navigation Map overlay ──────────────────────── */}
         {showNavMap && activeTask && (
           <WorkerNavigationMap
@@ -559,7 +686,9 @@ const WorkerDashboard = () => {
                   <div className="bg-green-500 p-1.5 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]">
                     <Zap size={14} fill="currentColor" className="text-white" />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-green-400">In Progress</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-green-400">
+                    In Progress
+                  </span>
                 </div>
 
                 {/* ── Tracking Active badge (hide when inProgress — worker already arrived) ── */}
@@ -576,10 +705,14 @@ const WorkerDashboard = () => {
 
               {/* Title & Address */}
               <div className="mb-6">
-                <h3 className="text-3xl font-black uppercase tracking-tighter mb-2">{activeTask.title}</h3>
+                <h3 className="text-3xl font-black uppercase tracking-tighter mb-2">
+                  {activeTask.title}
+                </h3>
                 <div className="flex items-center gap-2 text-gray-400">
                   <MapIcon size={16} />
-                  <p className="font-bold text-sm tracking-wide">{activeTask.address}</p>
+                  <p className="font-bold text-sm tracking-wide">
+                    {activeTask.address}
+                  </p>
                 </div>
               </div>
 
@@ -588,16 +721,24 @@ const WorkerDashboard = () => {
                 <div className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
                   <div className="flex items-center gap-2 text-gray-400 mb-1">
                     <IndianRupee size={14} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Earnings</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest">
+                      Earnings
+                    </span>
                   </div>
-                  <p className="text-2xl font-black tracking-tighter">₹{activeTask.price}</p>
+                  <p className="text-2xl font-black tracking-tighter">
+                    ₹{activeTask.price}
+                  </p>
                 </div>
                 <div className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
                   <div className="flex items-center gap-2 text-gray-400 mb-1">
                     <Clock size={14} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Est. Time</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest">
+                      Est. Time
+                    </span>
                   </div>
-                  <p className="text-2xl font-black tracking-tighter">{activeTask.estimatedDurationMinutes || '--'} min</p>
+                  <p className="text-2xl font-black tracking-tighter">
+                    {activeTask.estimatedDurationMinutes || "--"} min
+                  </p>
                 </div>
               </div>
 
@@ -610,8 +751,12 @@ const WorkerDashboard = () => {
                   {elapsed && (
                     <div className="flex items-center gap-2 bg-zinc-800/60 border border-zinc-700 px-4 py-3 rounded-2xl mb-3">
                       <Timer size={16} className="text-gray-400" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Time Since Accepted</span>
-                      <span className="ml-auto text-lg font-black tracking-tight text-gray-200 font-mono">{elapsed}</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                        Time Since Accepted
+                      </span>
+                      <span className="ml-auto text-lg font-black tracking-tight text-gray-200 font-mono">
+                        {elapsed}
+                      </span>
                     </div>
                   )}
                   <button
@@ -628,7 +773,10 @@ const WorkerDashboard = () => {
                       </>
                     )}
                   </button>
-                  <p className="text-center text-gray-500 text-xs mt-2">Tap when you reach the job location. An OTP will be sent to the client's email.</p>
+                  <p className="text-center text-gray-500 text-xs mt-2">
+                    Tap when you reach the job location. An OTP will be sent to
+                    the client's email.
+                  </p>
                 </div>
               )}
 
@@ -639,12 +787,21 @@ const WorkerDashboard = () => {
                   {elapsed && (
                     <div className="flex items-center gap-2 bg-zinc-800/60 border border-zinc-700/50 px-3 py-2 rounded-xl mb-4">
                       <Timer size={14} className="text-gray-400" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Time Since Accepted</span>
-                      <span className="ml-auto font-black tracking-tight text-gray-200 font-mono text-sm">{elapsed}</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                        Time Since Accepted
+                      </span>
+                      <span className="ml-auto font-black tracking-tight text-gray-200 font-mono text-sm">
+                        {elapsed}
+                      </span>
                     </div>
                   )}
-                  <p className="text-xs font-black uppercase tracking-widest text-green-400 mb-1">OTP sent to client's email</p>
-                  <p className="text-gray-400 text-xs mb-4">Ask the client for the 4-digit code and enter it below to start the task.</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-green-400 mb-1">
+                    OTP sent to client's email
+                  </p>
+                  <p className="text-gray-400 text-xs mb-4">
+                    Ask the client for the 4-digit code and enter it below to
+                    start the task.
+                  </p>
 
                   <input
                     type="text"
@@ -661,7 +818,9 @@ const WorkerDashboard = () => {
                   />
 
                   {otpError && (
-                    <p className="text-red-400 text-xs text-center mb-3 font-bold">{otpError}</p>
+                    <p className="text-red-400 text-xs text-center mb-3 font-bold">
+                      {otpError}
+                    </p>
                   )}
 
                   <div className="flex gap-2">
@@ -685,14 +844,18 @@ const WorkerDashboard = () => {
               )}
 
               {/* IN PROGRESS: Timer + Complete + Details + Reject (no Navigate — worker already arrived) */}
-              {(activeTask.status === "inProgress" || (!activeTask.status)) && (
+              {(activeTask.status === "inProgress" || !activeTask.status) && (
                 <div>
                   {/* Live elapsed timer */}
                   {elapsed && (
                     <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 px-4 py-3 rounded-2xl mb-3">
                       <Timer size={16} className="text-amber-400" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">Working Time</span>
-                      <span className="ml-auto text-lg font-black tracking-tight text-amber-300 font-mono">{elapsed}</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">
+                        Working Time
+                      </span>
+                      <span className="ml-auto text-lg font-black tracking-tight text-amber-300 font-mono">
+                        {elapsed}
+                      </span>
                     </div>
                   )}
                   <div className="flex gap-3">
@@ -702,9 +865,14 @@ const WorkerDashboard = () => {
                       disabled={completeLoading}
                       className="flex-1 bg-white text-black py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition-all active:scale-[0.98] shadow-lg flex items-center justify-center gap-2 group disabled:opacity-70"
                     >
-                      {completeLoading ? "Completing..." : (
+                      {completeLoading ? (
+                        "Completing..."
+                      ) : (
                         <>
-                          <CheckCircle size={20} className="group-hover:scale-110 transition-transform" />
+                          <CheckCircle
+                            size={20}
+                            className="group-hover:scale-110 transition-transform"
+                          />
                           <span>Complete</span>
                         </>
                       )}
@@ -731,7 +899,8 @@ const WorkerDashboard = () => {
               )}
 
               {/* ASSIGNED / ARRIVED: also show Details  + Reject below the main action */}
-              {(activeTask.status === "assigned" || activeTask.status === "arrived") && (
+              {(activeTask.status === "assigned" ||
+                activeTask.status === "arrived") && (
                 <div className="flex gap-2 mt-3">
                   <button
                     className="flex-1 bg-zinc-800 text-white py-3 rounded-2xl hover:bg-zinc-700 transition-all border border-zinc-700 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest"
@@ -758,7 +927,9 @@ const WorkerDashboard = () => {
           <div className="lg:col-span-2 space-y-6">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <h3 className="text-xl font-black uppercase tracking-tighter">
-                {activeTask ? "Nearby Opportunities (Queued)" : "Nearby Opportunities"}
+                {activeTask
+                  ? "Nearby Opportunities (Queued)"
+                  : "Nearby Opportunities"}
               </h3>
 
               {/* Distance Filter - Show if Online OR Active Task */}
@@ -768,31 +939,39 @@ const WorkerDashboard = () => {
                     <button
                       key={opt.value}
                       onClick={() => handleDistanceChange(opt.value)}
-                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${!isCustomDistance && selectedDistance === opt.value
-                        ? 'bg-black text-white shadow-md'
-                        : 'text-gray-500 hover:bg-gray-100'
-                        }`}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
+                        !isCustomDistance && selectedDistance === opt.value
+                          ? "bg-black text-white shadow-md"
+                          : "text-gray-500 hover:bg-gray-100"
+                      }`}
                     >
                       {opt.label}
                     </button>
                   ))}
-                  <div className="h-4 w-[1px] bg-gray-200 mx-1"></div>
-                  <form onSubmit={handleCustomDistanceSubmit} className="flex items-center">
+                  <div className="h-4 w-px bg-gray-200 mx-1"></div>
+                  <form
+                    onSubmit={handleCustomDistanceSubmit}
+                    className="flex items-center"
+                  >
                     <input
                       type="number"
                       min={0}
                       placeholder="Custom"
                       value={customDistance}
                       onChange={(e) => setCustomDistance(e.target.value)}
-                      className={`w-16 px-2 py-1 text-xs font-bold border rounded-l-lg focus:outline-none focus:ring-1 focus:ring-black ${isCustomDistance ? 'border-black bg-gray-50' : 'border-gray-200'
-                        }`}
+                      className={`w-16 px-2 py-1 text-xs font-bold border rounded-l-lg focus:outline-none focus:ring-1 focus:ring-black ${
+                        isCustomDistance
+                          ? "border-black bg-gray-50"
+                          : "border-gray-200"
+                      }`}
                     />
                     <button
                       type="submit"
-                      className={`px-2 py-1 rounded-r-lg text-[10px] font-bold uppercase tracking-widest border border-l-0 transition-all ${isCustomDistance
-                        ? 'bg-black text-white border-black'
-                        : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
-                        }`}
+                      className={`px-2 py-1 rounded-r-lg text-[10px] font-bold uppercase tracking-widest border border-l-0 transition-all ${
+                        isCustomDistance
+                          ? "bg-black text-white border-black"
+                          : "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
+                      }`}
                     >
                       km
                     </button>
@@ -801,20 +980,52 @@ const WorkerDashboard = () => {
               )}
             </div>
 
+            {/* Search bar */}
+            {(isOnline || activeTask) && (
+              <div className="relative">
+                <Search
+                  size={15}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                />
+                <input
+                  type="text"
+                  placeholder="Search by title, type, or address…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-9 py-2.5 text-sm font-medium bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent shadow-sm placeholder:text-gray-400"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* FEED CONTENT LOGIC */}
             {!isOnline && !activeTask ? (
               <div className="bg-gray-100 rounded-3xl p-12 text-center border-2 border-dashed border-gray-200">
-                <p className="text-gray-400 font-bold uppercase tracking-widest text-sm italic">Go Online to see available tasks in your area</p>
+                <p className="text-gray-400 font-bold uppercase tracking-widest text-sm italic">
+                  Go Online to see available tasks in your area
+                </p>
               </div>
             ) : tasksLoading ? (
               <div className="space-y-4">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="bg-white border border-gray-100 p-6 rounded-2xl animate-pulse h-40"></div>
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="bg-white border border-gray-100 p-6 rounded-2xl animate-pulse h-40"
+                  ></div>
                 ))}
               </div>
             ) : tasks.length === 0 ? (
               <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm">
-                <p className="text-gray-400 font-bold uppercase tracking-widest text-sm italic">No tasks found within this range.</p>
+                <p className="text-gray-400 font-bold uppercase tracking-widest text-sm italic">
+                  No tasks found within this range.
+                </p>
                 <button
                   onClick={() => setSelectedDistance(100)}
                   className="mt-4 text-xs font-bold underline"
@@ -822,41 +1033,93 @@ const WorkerDashboard = () => {
                   Try increasing distance
                 </button>
               </div>
-            ) : (
+            ) : (() => {
+              const q = searchQuery.trim().toLowerCase();
+              const filteredTasks = q
+                ? tasks.filter(
+                    (t) =>
+                      t.title?.toLowerCase().includes(q) ||
+                      t.taskType?.toLowerCase().includes(q) ||
+                      t.subcategory?.toLowerCase().includes(q) ||
+                      t.address?.toLowerCase().includes(q)
+                  )
+                : tasks;
+
+              if (filteredTasks.length === 0) {
+                return (
+                  <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm">
+                    <Search size={28} className="mx-auto mb-3 text-gray-300" />
+                    <p className="text-gray-400 font-bold uppercase tracking-widest text-sm italic">
+                      No tasks match "{searchQuery}"
+                    </p>
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="mt-4 text-xs font-bold underline"
+                    >
+                      Clear search
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
               <div className="space-y-4">
-                {tasks.map((task) => {
+                {filteredTasks.map((task) => {
                   const dist = calculateDistance(task.location);
                   return (
-                    <div key={task._id} className="bg-white border border-gray-200 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-black transition-all group shadow-sm hover:shadow-md">
+                    <div
+                      key={task._id}
+                      className="bg-white border border-gray-200 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-black transition-all group shadow-sm hover:shadow-md"
+                    >
                       <div>
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="px-2 py-0.5 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded">{task.taskType}</span>
+                          <span className="px-2 py-0.5 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded">
+                            {task.taskType}
+                          </span>
                           {task.subcategory && (
-                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold uppercase tracking-widest rounded">{task.subcategory}</span>
+                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold uppercase tracking-widest rounded">
+                              {task.subcategory}
+                            </span>
                           )}
                         </div>
-                        <h4 className="text-lg font-black uppercase tracking-tighter group-hover:text-blue-600 transition-colors">{task.title}</h4>
+                        <h4 className="text-lg font-black uppercase tracking-tighter group-hover:text-blue-600 transition-colors">
+                          {task.title}
+                        </h4>
 
                         {/* Address */}
                         <div className="flex items-center gap-1.5 mt-1 mb-2">
                           <MapIcon size={12} className="text-gray-400" />
-                          <p className="text-xs font-bold text-gray-500 line-clamp-1">{task.address || "Location not specified"}</p>
+                          <p className="text-xs font-bold text-gray-500 line-clamp-1">
+                            {task.address || "Location not specified"}
+                          </p>
                         </div>
 
                         <div className="flex items-center gap-4 mt-3 text-gray-400 text-xs font-medium">
                           <div className="flex items-center gap-1">
-                            <Navigation size={14} className={dist && dist < 5 ? "text-green-600" : ""} />
-                            {dist ? `${dist} km away` : 'Nearby'}
+                            <Navigation
+                              size={14}
+                              className={
+                                dist && dist < 5 ? "text-green-600" : ""
+                              }
+                            />
+                            {dist ? `${dist} km away` : "Nearby"}
                           </div>
-                          <div className="flex items-center gap-1"><Clock size={14} />
-                            {task.estimatedDurationMinutes ? `${task.estimatedDurationMinutes} mins` : 'Flexible'}
+                          <div className="flex items-center gap-1">
+                            <Clock size={14} />
+                            {task.estimatedDurationMinutes
+                              ? `${task.estimatedDurationMinutes} mins`
+                              : "Flexible"}
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-4 border-t md:border-t-0 pt-4 md:pt-0 mt-2 md:mt-0">
                         <div className="text-right">
-                          <p className="text-2xl font-black tracking-tighter">₹{task.price}</p>
-                          <p className="text-[10px] font-bold text-gray-400 uppercase">You Keep 85%</p>
+                          <p className="text-2xl font-black tracking-tighter">
+                            ₹{task.price}
+                          </p>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase">
+                            You Keep 85%
+                          </p>
                         </div>
                         <button
                           onClick={() => setSelectedTask(task)}
@@ -866,37 +1129,61 @@ const WorkerDashboard = () => {
                         </button>
                       </div>
                     </div>
-                  )
+                  );
                 })}
               </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* Quick Actions / Recent Activity */}
           <div className="space-y-6">
-            <h3 className="text-xl font-black uppercase tracking-tighter">Account</h3>
+            <h3 className="text-xl font-black uppercase tracking-tighter">
+              Account
+            </h3>
 
             <div className="bg-white border border-gray-200 p-6 rounded-3xl">
               <div className="flex justify-between items-start mb-4 text-gray-400">
                 <Star size={24} />
-                <span className="text-[10px] font-bold uppercase tracking-widest italic">Rating</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest italic">
+                  Rating
+                </span>
               </div>
-              <h2 className="text-4xl font-black tracking-tighter">{worker?.rating || "N/A"}</h2>
-              <p className="text-gray-500 text-xs mt-2 font-medium">{worker?.completedTasks || 0} Completed Tasks</p>
+              <h2 className="text-4xl font-black tracking-tighter">
+                {worker?.rating || "N/A"}
+              </h2>
+              <p className="text-gray-500 text-xs mt-2 font-medium">
+                {worker?.completedTasks || 0} Completed Tasks
+              </p>
             </div>
 
             <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
               <div className="p-4 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50 cursor-pointer group">
-                <span className="text-xs font-bold uppercase tracking-widest">Withdraw Funds</span>
-                <ArrowUpRight size={14} className="text-gray-300 group-hover:text-black transition-colors" />
+                <span className="text-xs font-bold uppercase tracking-widest">
+                  Withdraw Funds
+                </span>
+                <ArrowUpRight
+                  size={14}
+                  className="text-gray-300 group-hover:text-black transition-colors"
+                />
               </div>
               <div className="p-4 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50 cursor-pointer group">
-                <span className="text-xs font-bold uppercase tracking-widest">My Certifications</span>
-                <ArrowUpRight size={14} className="text-gray-300 group-hover:text-black transition-colors" />
+                <span className="text-xs font-bold uppercase tracking-widest">
+                  My Certifications
+                </span>
+                <ArrowUpRight
+                  size={14}
+                  className="text-gray-300 group-hover:text-black transition-colors"
+                />
               </div>
               <div className="p-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer group">
-                <span className="text-xs font-bold uppercase tracking-widest">Help & Safety</span>
-                <ArrowUpRight size={14} className="text-gray-300 group-hover:text-black transition-colors" />
+                <span className="text-xs font-bold uppercase tracking-widest">
+                  Help & Safety
+                </span>
+                <ArrowUpRight
+                  size={14}
+                  className="text-gray-300 group-hover:text-black transition-colors"
+                />
               </div>
             </div>
           </div>

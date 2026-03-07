@@ -33,8 +33,12 @@ const useLiveTracking = (options) => {
   const { taskId, destination } = options || {};
   const dispatch = useDispatch();
 
-  /* Read tracking state from Redux */
+  /* Read tracking state from Redux.
+     Also subscribe to socketConnected so the effect re-runs when the
+     socket connects (e.g. after a page refresh restores the token). */
   const liveTracking = useSelector((state) => state.user.liveTracking);
+  // eslint-disable-next-line no-unused-vars
+  const socketConnected = useSelector((state) => state.user.socketConnected);
 
   const handleUpdate = useCallback(
     (data) => {

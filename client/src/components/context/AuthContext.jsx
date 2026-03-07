@@ -22,8 +22,10 @@ export const AuthProvider = ({ children }) => {
         if (res.data?.success) {
           setUserState(res.data.user);
           dispatch(setUser(res.data.user));
-          // Token stays in Redux (already sent by /me response cookie; no
-          // need to store it separately \u2014 axios withCredentials handles it)
+          // Restore token in Redux so the socket provider can reconnect
+          if (res.data.token) {
+            dispatch(setToken(res.data.token));
+          }
         }
       } catch {
         // Cookie missing / expired \u2014 user is simply not logged in

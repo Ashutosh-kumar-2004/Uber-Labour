@@ -10,6 +10,8 @@ import {
   updateWorkerLocation,
   markArrived,
   verifyOTP,
+  getWorkerHistory,
+  getWorkerReviews,
 } from "../controller/workerController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -28,6 +30,8 @@ router.post("/tasks/:taskId/complete", completeTask);
 router.post("/tasks/:taskId/location", updateWorkerLocation);
 router.post("/tasks/:taskId/arrived", markArrived);    // worker taps "I've Arrived"
 router.post("/tasks/:taskId/verify-otp", verifyOTP);   // worker submits OTP from user
+router.get("/history", getWorkerHistory);              // worker's completed task history
+router.get("/reviews", getWorkerReviews);              // reviews received by worker
 
 export default router;
 

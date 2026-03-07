@@ -13,6 +13,8 @@ const UserProfile = lazy(() => import("../components/User/UserProfile"));
 const Registration = lazy(() => import("../components/Labor/Registration"));
 const WorkerDashboard = lazy(() => import("../components/Labor/WorkerDashboard"));
 const WorkerProfile = lazy(() => import("../components/Labor/WorkerProfile"));
+const WorkerHistory = lazy(() => import("../components/Labor/WorkerHistory"));
+const WorkerReviews = lazy(() => import("../components/Labor/WorkerReviews"));
 const MyReviews = lazy(() => import("../components/User/MyReviews"));
 
 /* Redirects unauthenticated users to /login, preserving the attempted path */
@@ -49,6 +51,8 @@ const AppRoutes = () => {
         <Route path="/worker"           element={<ProtectedRoute><Registration /></ProtectedRoute>} />
         <Route path="/worker/dashboard" element={<ProtectedRoute><WorkerDashboard /></ProtectedRoute>} />
         <Route path="/worker/profile"   element={<ProtectedRoute><WorkerProfile /></ProtectedRoute>} />
+        <Route path="/worker/history"   element={<ProtectedRoute><WorkerHistory /></ProtectedRoute>} />
+        <Route path="/worker/reviews"   element={<ProtectedRoute><WorkerReviews /></ProtectedRoute>} />
       </Routes>
     </Suspense>
   );

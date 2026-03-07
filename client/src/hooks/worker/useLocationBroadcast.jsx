@@ -57,7 +57,7 @@ const useLocationBroadcast = (taskId) => {
   const prevRef = useRef(null); // { lat, lng, ts }
   const watchIdRef = useRef(null);
   const lastEmitRef = useRef(0);
-  const INTERVAL_MS = 5000;
+  const INTERVAL_MS = 1000;
 
   const emit = useCallback(
     async (lat, lng) => {
@@ -117,7 +117,7 @@ const useLocationBroadcast = (taskId) => {
         emit(coords.latitude, coords.longitude);
       },
       (err) => console.warn("[Location] watchPosition error:", err.message),
-      { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
     );
 
     return () => {

@@ -3,6 +3,7 @@ import cloudinary from "../config/cloudinary.js";
 import Worker from "../modal/Worker.model.js";
 import User from "../modal/User.js";
 import Task from "../modal/user/Task.model.js";
+import Review from "../modal/Review.model.js";
 import "../modal/TaskRejection.model.js"; // Import model to register schema
 import {
   notifyTaskAccepted,
@@ -21,6 +22,85 @@ import {
   haversineKm,
   NO_SHOW_BAN_MS_WORKER,
 } from "../constants/constant.js";
+
+/* ══════════════════════════════════════════════════
+   GET WORKER HISTORY — paginated list of completed tasks for the worker
+   GET /api/worker/history?page=1&limit=10
+══════════════════════════════════════════════════ */
+export const getWorkerHistory = async (req, res) => {
+  try {
+    const worker = await Worker.findOne({ userId: req.user._id });
+    if (!worker) return res.status(404).json({ message: "Worker not found" });
+
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(50, parseInt(req.query.limit) || 10);
+    const skip  = (page - 1) * limit;
+
+    const [tasks, total] = await Promise.all([
+      Task.find({ assignedWorkerId: worker._id, status: "completed" })
+        .sort({ completedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("userId", "name email"),
+      Task.countDocuments({ assignedWorkerId: worker._id, status: "completed" }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      tasks,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        hasMore: skip + tasks.length < total,
+      },
+    });
+  } catch (err) {
+    console.error("getWorkerHistory error:", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+/* ══════════════════════════════════════════════════
+   GET WORKER REVIEWS — paginated reviews received by the worker
+   GET /api/worker/reviews?page=1&limit=10
+══════════════════════════════════════════════════ */
+export const getWorkerReviews = async (req, res) => {
+  try {
+    const worker = await Worker.findOne({ userId: req.user._id });
+    if (!worker) return res.status(404).json({ message: "Worker not found" });
+
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(50, parseInt(req.query.limit) || 10);
+    const skip  = (page - 1) * limit;
+
+    const [reviews, total] = await Promise.all([
+      Review.find({ workerId: worker._id })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("taskId", "title taskType subcategory address price completedAt inProgressAt workSummary")
+        .populate("userId", "name"),
+      Review.countDocuments({ workerId: worker._id }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      reviews,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        hasMore: skip + reviews.length < total,
+      },
+    });
+  } catch (err) {
+    console.error("getWorkerReviews error:", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
 
 export const getWorkerProfile = async (req, res) => {
   try {
@@ -731,7 +811,7 @@ export const markArrived = async (req, res) => {
       });
       console.log(`[OTP] Sent to ${jobPoster.email} for task ${task._id}`);
     } catch (mailErr) {
-      console.error("[OTP] Email send failed:", mailErr.message);
+      // console.error("[OTP] Email send failed:", mailErr.message);
       // Do NOT fail the request — task status is already updated
     }
 

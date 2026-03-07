@@ -26,12 +26,12 @@ export const SocketProvider = ({ children }) => {
     socketRef.current = socket;
 
     socket.on("connect", () => {
-      console.log("[Socket] Connected:", socket.id);
+      // console.log("[Socket] Connected:", socket.id);
       dispatch(setSocketConnected(true));
     });
 
     socket.on("connect_error", (err) => {
-      console.warn("[Socket] Connection error:", err.message);
+      // console.warn("[Socket] Connection error:", err.message);
       dispatch(setSocketConnected(false));
     });
 

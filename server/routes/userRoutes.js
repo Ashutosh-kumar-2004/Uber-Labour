@@ -11,6 +11,6 @@ router.get("/my-works", getMyWorks);
 router.post("/task/:taskId/review", submitReview);
 router.get("/task/:taskId/review", getTaskReview);
 router.post("/task/:taskId/report", submitReport);
-router.get("/reviews", getMyReviews);   // paginated past reviews
+router.get("/reviews", getMyReviews);
 
 export default router;

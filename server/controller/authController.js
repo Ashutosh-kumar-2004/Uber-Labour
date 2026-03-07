@@ -162,6 +162,8 @@ export const getMe = async (req, res) => {
   try {
     // req.user is populated by the protect middleware (reads cookie or header)
     const user = req.user;
+    // Return the token so the client can restore socket auth after page refresh
+    const token = req.cookies?.auth_token;
     return res.status(200).json({
       success: true,
       user: {
@@ -171,6 +173,7 @@ export const getMe = async (req, res) => {
         userType: user.userType,
         isVerified: user.isVerified,
       },
+      token,
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Server error" });
