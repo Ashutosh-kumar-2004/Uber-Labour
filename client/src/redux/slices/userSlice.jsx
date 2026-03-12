@@ -13,11 +13,9 @@ const initialState = {
     speed: 0,                   // km/h
     bearing: 0,                 // degrees (0 = North)
     workerCoords: null,         // { lat, lng }
-    routePath: [],              // [[lat, lng], ...]
   },
   liveTracking: {               // (user-side view of worker)
     workerCoords: null,
-    routePath: [],
     distanceKm: null,
     speed: 0,
     bearing: 0,
@@ -62,10 +60,6 @@ const userSlice = createSlice({
     appendWorkerPath: (state, action) => {
       const { lat, lng } = action.payload;
       state.workerTracking.workerCoords = { lat, lng };
-      state.workerTracking.routePath = [
-        ...state.workerTracking.routePath,
-        [lat, lng],
-      ];
     },
     clearWorkerTracking: (state) => {
       state.workerTracking = initialState.workerTracking;
@@ -78,10 +72,6 @@ const userSlice = createSlice({
     appendLivePath: (state, action) => {
       const { lat, lng } = action.payload;
       state.liveTracking.workerCoords = { lat, lng };
-      state.liveTracking.routePath = [
-        ...state.liveTracking.routePath,
-        [lat, lng],
-      ];
     },
     clearLiveTracking: (state) => {
       state.liveTracking = initialState.liveTracking;

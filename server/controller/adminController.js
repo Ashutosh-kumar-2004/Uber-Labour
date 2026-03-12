@@ -234,7 +234,11 @@ export const rejectWorker = async (req, res) => {
         : "Your registration was rejected. Please re-apply with valid documents.",
     });
 
-    try {
+  // Ban the user from re-registering as a worker for 3 days
+  const banExpiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  await User.findByIdAndUpdate(worker.userId._id, { banExpiresAt });
+
+  try {
       const io = getIO();
       io.to(`user_${worker.userId._id}`).emit("worker_rejected", {
         message: "Your registration has been rejected.",
@@ -247,6 +251,7 @@ export const rejectWorker = async (req, res) => {
         toEmail: worker.userId.email,
         workerName: worker.userId.name,
         reason,
+        banExpiresAt,
       });
     } catch (emailErr) {
       console.error("Reject email failed:", emailErr);

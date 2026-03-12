@@ -75,7 +75,7 @@ const LiveTrackingMap = ({ task, onClose }) => {
     return { lat, lng };
   }, [task]);
 
-  const { workerCoords, routePath, distanceKm, speed, bearing, hasArrived } =
+  const { workerCoords, distanceKm, speed, bearing, hasArrived } =
     useLiveTracking({ taskId: task?._id, destination });
 
   /* ── OSRM expected route ──────────────────────── */
@@ -231,14 +231,6 @@ const LiveTrackingMap = ({ task, onClose }) => {
           />
         )}
 
-        {/* Green actual traveled path */}
-        {routePath.length > 1 && (
-          <Polyline
-            positions={routePath}
-            pathOptions={{ color: "#22C55E", weight: 4, opacity: 0.9 }}
-          />
-        )}
-
         {/* Worker arrow */}
         {workerCoords && (
           <Marker position={[workerCoords.lat, workerCoords.lng]} icon={arrowIcon}>
@@ -280,7 +272,6 @@ const LiveTrackingMap = ({ task, onClose }) => {
         border: "1px solid rgba(255,255,255,0.08)",
       }}>
         <LegendItem color="#3B82F6" label="Expected Route (OSRM)" />
-        <LegendItem color="#22C55E" label="Traveled Path" />
       </div>
     </div>
   );

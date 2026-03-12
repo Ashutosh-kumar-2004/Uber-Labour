@@ -120,6 +120,7 @@ export const getWorkerProfile = async (req, res) => {
       success: true,
       worker,
       activeTask,
+      userBanExpiresAt: req.user.banExpiresAt ?? null,
     });
   } catch (error) {
     console.error("Error fetching worker profile:", error);
@@ -132,15 +133,23 @@ export const verifyWorker = async (req, res) => {
     const { adharCardNumber, address, contactNumber, idCardImage } = req.body;
     const userId = req.user._id;
 
+    // Block re-registration if user is within their 3-day rejection ban
+    if (req.user.banExpiresAt && new Date(req.user.banExpiresAt) > new Date()) {
+      return res.status(403).json({
+        message: `Your application was rejected. You can re-apply after ${new Date(req.user.banExpiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}.`,
+        banExpiresAt: req.user.banExpiresAt,
+      });
+    }
+
     if (!idCardImage) {
       return res.status(400).json({ message: "ID Card Image URL is required" });
     }
 
     // Update User with Address, Contact Number AND upgrade to worker role
+    // Also clear any previous rejection ban since they are actively re-applying.
     await User.findByIdAndUpdate(userId, {
-      address,
-      contactNumber,
-      userType: "worker",
+      $set: { address, contactNumber, userType: "worker" },
+      $unset: { banExpiresAt: "" },
     });
 
     // Create or Update Worker Record
@@ -694,9 +703,6 @@ export const updateWorkerLocation = async (req, res) => {
       lng: parsedLng,
       updatedAt: new Date(),
     };
-    worker.routeHistory.push({ lat: parsedLat, lng: parsedLng });
-    if (worker.routeHistory.length > 500)
-      worker.routeHistory = worker.routeHistory.slice(-500);
     worker.lastSeenAt = new Date();
     await worker.save();
 

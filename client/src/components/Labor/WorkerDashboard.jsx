@@ -183,7 +183,7 @@ const WorkerDashboard = () => {
   ]);
 
   // ── Real-time GPS tracking (active only when task exists) ──
-  const { isTracking, speed, bearing, workerCoords, routePath } =
+  const { isTracking, speed, bearing, workerCoords } =
     useLocationBroadcast(activeTask?._id || null);
   // ... (Fetch tasks effect remains same) ...
   useEffect(() => {
@@ -664,7 +664,6 @@ const WorkerDashboard = () => {
           <WorkerNavigationMap
             task={activeTask}
             workerCoords={workerCoords}
-            routePath={routePath}
             speed={speed}
             bearing={bearing}
             isTracking={isTracking}

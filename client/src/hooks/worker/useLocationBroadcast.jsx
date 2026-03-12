@@ -2,7 +2,6 @@ import { useEffect, useRef, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   setWorkerTracking,
-  appendWorkerPath,
   clearWorkerTracking,
 } from "../../redux/slices/userSlice.jsx";
 import { useSocket } from "../../context/SocketContext";
@@ -79,8 +78,14 @@ const useLocationBroadcast = (taskId) => {
       prevRef.current = { lat, lng, ts: now };
 
       /* Update Redux tracking state */
-      dispatch(setWorkerTracking({ isTracking: true, speed, bearing }));
-      dispatch(appendWorkerPath({ lat, lng }));
+      dispatch(
+        setWorkerTracking({
+          isTracking: true,
+          speed,
+          bearing,
+          workerCoords: { lat, lng },
+        })
+      );
 
       /* Try socket first */
       if (socket?.connected) {

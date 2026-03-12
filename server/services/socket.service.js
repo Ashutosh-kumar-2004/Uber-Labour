@@ -129,14 +129,9 @@ export const initSocketServer = (io) => {
           worker.currentBearing = Math.round(bearing);
         }
 
-        /* Update workerLocation and append to routeHistory */
+        /* Update workerLocation only */
         worker.workerLocation = { lat: parsedLat, lng: parsedLng, updatedAt: new Date() };
-        worker.routeHistory.push({ lat: parsedLat, lng: parsedLng });
         worker.lastSeenAt = new Date();
-        /* Keep routeHistory to last 500 points to avoid unbounded growth */
-        if (worker.routeHistory.length > 500) {
-          worker.routeHistory = worker.routeHistory.slice(-500);
-        }
 
         await worker.save();
 

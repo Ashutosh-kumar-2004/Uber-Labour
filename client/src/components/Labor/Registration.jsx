@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Upload,
   CheckCircle,
@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import useWorkerRegistration from "../../hooks/user/useWorkerRegistration";
 import { useNavigate, Link } from "react-router-dom";
+import axiosInstance from "../../api/axios";
 
 const Registration = () => {
   const [step, setStep] = useState(1); // 1: Info, 2: Upload, 3: Pending
@@ -21,7 +22,37 @@ const Registration = () => {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const navigate = useNavigate();
-  const { registerWorker, loading, error, success } = useWorkerRegistration();
+  const { registerWorker, loading, error } = useWorkerRegistration();
+
+  // null = loading, "none" = no record, "pending" | "rejected" | "verified"
+  const [workerStatus, setWorkerStatus] = useState(null);
+  const [banExpiresAt, setBanExpiresAt] = useState(null);
+  const [statusLoading, setStatusLoading] = useState(true);
+
+  // Check existing worker status on mount
+  useEffect(() => {
+    axiosInstance
+      .get("/api/worker/profile")
+      .then((res) => {
+        const status = res.data?.worker?.status;
+        setWorkerStatus(status || "none");
+        if (res.data?.userBanExpiresAt) setBanExpiresAt(res.data.userBanExpiresAt);
+        if (status === "verified") navigate("/worker/dashboard");
+      })
+      .catch((err) => {
+        if (err.response?.status === 404) {
+          setWorkerStatus("none");
+        } else {
+          setWorkerStatus("none");
+        }
+      })
+      .finally(() => setStatusLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const banDate = banExpiresAt ? new Date(banExpiresAt) : null;
+  const banDaysLeft = banDate
+    ? Math.max(0, Math.ceil((banDate - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0;
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -40,12 +71,7 @@ const Registration = () => {
       alert("Please upload your ID card.");
       return;
     }
-
-    const payload = {
-      ...formData,
-      file,
-    };
-
+    const payload = { ...formData, file };
     try {
       await registerWorker(payload);
       setStep(3);
@@ -54,6 +80,97 @@ const Registration = () => {
       alert(err.message || "Registration failed");
     }
   };
+
+  // ── Status-based early returns ────────────────────────────────────────────
+
+  if (statusLoading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-black border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm font-bold uppercase tracking-widest text-gray-400">
+            Checking status…
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Worker already has a pending application
+  if (workerStatus === "pending") {
+    return (
+      <div className="min-h-screen bg-white text-black flex flex-col items-center justify-center p-6">
+        <div className="max-w-xl w-full text-center space-y-6 animate-in zoom-in duration-500">
+          <div className="flex justify-center">
+            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center">
+              <ShieldCheck size={48} className="text-black" />
+            </div>
+          </div>
+          <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-700 text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full">
+            <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse inline-block" />
+            Application Under Verification
+          </div>
+          <h2 className="text-3xl font-black uppercase tracking-tighter">
+            Under Review
+          </h2>
+          <p className="text-gray-500 font-medium leading-relaxed px-8">
+            Your documents have been submitted and are currently being reviewed
+            by our team. This typically takes up to 24 hours. You will receive
+            an email once a decision is made.
+          </p>
+          <Link to="/">
+            <button className="px-8 py-3 border-2 border-black font-black uppercase tracking-widest text-xs rounded-full hover:bg-black hover:text-white transition-all">
+              Return to Home
+            </button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Worker was rejected and the 3-day ban is still active
+  if (workerStatus === "rejected" && banDate && banDate > new Date()) {
+    return (
+      <div className="min-h-screen bg-white text-black flex flex-col items-center justify-center p-6">
+        <div className="max-w-xl w-full text-center space-y-6 animate-in zoom-in duration-500">
+          <div className="flex justify-center">
+            <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center">
+              <Award size={48} className="text-red-500" />
+            </div>
+          </div>
+          <div className="inline-flex items-center gap-2 bg-red-100 text-red-700 text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full">
+            Application Rejected
+          </div>
+          <h2 className="text-3xl font-black uppercase tracking-tighter">
+            Not Approved
+          </h2>
+          <p className="text-gray-500 font-medium leading-relaxed px-8">
+            Your application was reviewed and could not be approved at this
+            time. You can re-apply in{" "}
+            <strong className="text-black">
+              {banDaysLeft} {banDaysLeft === 1 ? "day" : "days"}
+            </strong>{" "}
+            with updated documents.
+          </p>
+          <p className="text-xs text-gray-400 font-medium">
+            Re-apply available after:{" "}
+            {banDate.toLocaleDateString("en-IN", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+          </p>
+          <Link to="/">
+            <button className="px-8 py-3 border-2 border-black font-black uppercase tracking-widest text-xs rounded-full hover:bg-black hover:text-white transition-all">
+              Return to Home
+            </button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Registration form (no worker record, or ban has expired) ──────────────
 
   return (
     <div className="min-h-screen bg-white text-black flex flex-col items-center justify-center p-6">

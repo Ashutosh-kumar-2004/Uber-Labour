@@ -2,7 +2,6 @@ import { useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   setLiveTracking,
-  appendLivePath,
   clearLiveTracking,
 } from "../../redux/slices/userSlice.jsx";
 import { useSocket } from "../../context/SocketContext";
@@ -46,9 +45,9 @@ const useLiveTracking = (options) => {
 
       const { lat, lng } = data;
 
-      dispatch(appendLivePath({ lat, lng }));
       dispatch(
         setLiveTracking({
+          workerCoords: { lat, lng },
           speed: data.speed ?? 0,
           bearing: data.bearing ?? 0,
           hasArrived: data.hasArrived ?? false,

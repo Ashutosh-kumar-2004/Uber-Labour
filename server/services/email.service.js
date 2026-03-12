@@ -142,7 +142,7 @@ export async function sendWorkerApprovedEmail({ toEmail, workerName }) {
 /**
  * Send worker-rejected email.
  */
-export async function sendWorkerRejectedEmail({ toEmail, workerName, reason }) {
+export async function sendWorkerRejectedEmail({ toEmail, workerName, reason, banExpiresAt }) {
   const from = process.env.EMAIL_FROM || `"Workify Pro" <${process.env.EMAIL_USER}>`;
   const html = `
   <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/></head>
@@ -159,7 +159,9 @@ export async function sendWorkerRejectedEmail({ toEmail, workerName, reason }) {
               We're sorry to inform you that your worker registration has been <strong style="color:#dc2626">rejected</strong>.
               ${reason ? `<br/><br/><strong>Reason:</strong> ${reason}` : ""}
             </p>
-            <p style="color:#374151;font-size:14px;margin:0 0 8px">Please re-apply with the correct details and valid documents.</p>
+            ${banExpiresAt
+              ? `<p style="color:#374151;font-size:14px;margin:0 0 8px">You may re-apply after <strong>${new Date(banExpiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</strong>.</p>`
+              : `<p style="color:#374151;font-size:14px;margin:0 0 8px">Please re-apply with the correct details and valid documents.</p>`}
           </td></tr>
           <tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 40px;text-align:center">
             <p style="color:#9ca3af;font-size:11px;margin:0">© 2026 WORKIFY PRO</p>

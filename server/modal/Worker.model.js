@@ -85,11 +85,6 @@ const workerSchema = new mongoose.Schema(
     lng: { type: Number, default: null },
     updatedAt: { type: Date, default: null }
   },
-  routeHistory: [{
-    lat: Number,
-    lng: Number,
-    timestamp: { type: Date, default: Date.now }
-  }],
   currentSpeed: { type: Number, default: 0 },    // km/h
   currentBearing: { type: Number, default: 0 },   // degrees (0 = North, CW)
   lastSeenAt: { type: Date, default: null }

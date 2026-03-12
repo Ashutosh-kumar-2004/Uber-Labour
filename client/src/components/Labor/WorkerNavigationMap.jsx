@@ -110,7 +110,6 @@ const makeDeviatedIcon = (bearing) => {
  * Props:
  *  task         — active task object (must have task.location.coordinates [lng, lat])
  *  workerCoords — { lat, lng } current GPS position
- *  routePath    — [[lat, lng], ...] actual traveled path
  *  speed        — number (km/h)
  *  bearing      — number (degrees)
  *  isTracking   — bool
@@ -119,7 +118,6 @@ const makeDeviatedIcon = (bearing) => {
 const WorkerNavigationMap = ({
   task,
   workerCoords,
-  routePath,
   speed,
   bearing,
   isTracking,
@@ -352,14 +350,6 @@ const WorkerNavigationMap = ({
           />
         )}
 
-        {/* ── Actual traveled path — Green solid ── */}
-        {routePath.length > 1 && (
-          <Polyline
-            positions={routePath}
-            pathOptions={{ color: "#22C55E", weight: 5, opacity: 0.9 }}
-          />
-        )}
-
         {/* ── Worker arrow marker ── */}
         {workerCoords && (
           <Marker position={[workerCoords.lat, workerCoords.lng]} icon={arrowIcon} />
@@ -380,7 +370,6 @@ const WorkerNavigationMap = ({
         border: "1px solid rgba(255,255,255,0.08)",
       }}>
         <LegendRow color="#3B82F6" label="Expected Route (OSRM)" />
-        <LegendRow color="#22C55E" label="Traveled Path" />
         {isDeviated && <LegendRow color="#F97316" label="Deviating" dash />}
       </div>
 
