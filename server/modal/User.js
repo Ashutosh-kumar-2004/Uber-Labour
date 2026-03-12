@@ -24,8 +24,8 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: {
-        values: ["user", "worker"],
-        message: "User type must be either 'user' or 'worker'",
+        values: ["user", "worker", "admin"],
+        message: "User type must be 'user', 'worker', or 'admin'",
       },
       default: "user",
     },

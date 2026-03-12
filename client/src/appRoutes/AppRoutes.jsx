@@ -17,12 +17,38 @@ const WorkerHistory = lazy(() => import("../components/Labor/WorkerHistory"));
 const WorkerReviews = lazy(() => import("../components/Labor/WorkerReviews"));
 const MyReviews = lazy(() => import("../components/User/MyReviews"));
 
+/* Admin pages */
+const AdminLayout = lazy(() => import("../components/Admin/AdminLayout"));
+const AdminDashboard = lazy(() => import("../components/Admin/AdminDashboard"));
+const WorkerVerification = lazy(() => import("../components/Admin/WorkerVerification"));
+const WorkersList = lazy(() => import("../components/Admin/WorkersList"));
+const UsersList = lazy(() => import("../components/Admin/UsersList"));
+const TasksMonitor = lazy(() => import("../components/Admin/TasksMonitor"));
+const CategoriesManager = lazy(() => import("../components/Admin/CategoriesManager"));
+const ReviewsMonitor = lazy(() => import("../components/Admin/ReviewsMonitor"));
+const ReportsMonitor = lazy(() => import("../components/Admin/ReportsMonitor"));
+const PlatformFeeSettings = lazy(() => import("../components/Admin/PlatformFeeSettings"));
+const TaskRejectionsPanel = lazy(() => import("../components/Admin/TaskRejectionsPanel"));
+
 /* Redirects unauthenticated users to /login, preserving the attempted path */
 const ProtectedRoute = ({ children }) => {
   const { user } = useAuth();
   const location = useLocation();
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  return children;
+};
+
+/* Only admins can access these routes */
+const AdminRoute = ({ children }) => {
+  const { user } = useAuth();
+  const location = useLocation();
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  if (user.userType !== "admin") {
+    return <Navigate to="/login" replace />;
   }
   return children;
 };
@@ -53,6 +79,23 @@ const AppRoutes = () => {
         <Route path="/worker/profile"   element={<ProtectedRoute><WorkerProfile /></ProtectedRoute>} />
         <Route path="/worker/history"   element={<ProtectedRoute><WorkerHistory /></ProtectedRoute>} />
         <Route path="/worker/reviews"   element={<ProtectedRoute><WorkerReviews /></ProtectedRoute>} />
+
+        {/* Admin routes */}
+        <Route
+          path="/admin"
+          element={<AdminRoute><AdminLayout /></AdminRoute>}
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="workers" element={<WorkerVerification />} />
+          <Route path="workers/all" element={<WorkersList />} />
+          <Route path="users" element={<UsersList />} />
+          <Route path="tasks" element={<TasksMonitor />} />
+          <Route path="categories" element={<CategoriesManager />} />
+          <Route path="reviews" element={<ReviewsMonitor />} />
+          <Route path="reports" element={<ReportsMonitor />} />
+          <Route path="finance" element={<PlatformFeeSettings />} />
+          <Route path="rejections" element={<TaskRejectionsPanel />} />
+        </Route>
       </Routes>
     </Suspense>
   );

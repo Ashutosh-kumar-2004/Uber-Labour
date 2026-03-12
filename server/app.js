@@ -10,6 +10,7 @@ import connectDB from "./config/db.js";
 import { protect } from "./middleware/authMiddleware.js";
 import workerRoutes from "./routes/workerRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 import { initSocketServer } from "./services/socket.service.js";
 
 const app = express();
@@ -35,6 +36,7 @@ app.use(protect);
 app.use("/api/user", userRoutes);
 app.use("/api/worker", workerRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/admin", adminRoutes);
 
 /* ── Socket.IO ───────────────────────────────────── */
 const io = new SocketIOServer(server, {

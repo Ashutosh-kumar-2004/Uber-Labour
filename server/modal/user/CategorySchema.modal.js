@@ -37,6 +37,12 @@ const categorySchema = new mongoose.Schema(
     subCategories: {
       type: [subCategorySchema],
       default: []
+    },
+
+    /* Optional icon name for UI display */
+    icon: {
+      type: String,
+      default: ""
     }
   },
   { timestamps: true }

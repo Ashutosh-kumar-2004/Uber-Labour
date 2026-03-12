@@ -32,6 +32,11 @@ const notificationSchema = new mongoose.Schema(
         "task_assigned",   // assigned to worker
         "task_unavailable",
         "task_cancelled",
+        "ban_lifted",      // admin lifted worker ban
+        "force_assigned",  // admin force-assigned task
+        "worker_verified", // admin approved worker registration
+        "worker_rejected", // admin rejected worker registration
+        "worker_banned",   // admin banned worker
       ],
       required: true,
     },

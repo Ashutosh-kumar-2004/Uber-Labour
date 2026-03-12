@@ -20,6 +20,14 @@ const taskRejectionSchema = new mongoose.Schema({
   rejectedAt: {
     type: Date,
     default: Date.now
+  },
+  adminReviewed: {
+    type: Boolean,
+    default: false
+  },
+  banLifted: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 

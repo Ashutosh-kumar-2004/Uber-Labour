@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axiosInstance from "../../api/axios.jsx";
 import { useDispatch } from "react-redux";
 import { addWork } from "../../redux/slices/userWorkSlice.jsx";
@@ -7,7 +7,16 @@ const useCreateWork = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [categories, setCategories] = useState([]);
   const dispatch = useDispatch();
+
+  // Fetch categories from the DB on mount
+  useEffect(() => {
+    axiosInstance
+      .get("/api/admin/categories")
+      .then((res) => setCategories(res.data?.categories || []))
+      .catch(() => {}); // silently fall back to an empty array
+  }, []);
 
   // Cloudinary Config
   const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
@@ -83,7 +92,7 @@ const useCreateWork = () => {
     }
   };
 
-  return { createWork, loading, error, success };
+  return { createWork, loading, error, success, categories };
 };
 
 export default useCreateWork;
