@@ -888,3 +888,75 @@ export const liftWorkerBan = async (req, res) => {
     return res.status(500).json({ message: "Server Error" });
   }
 };
+
+/* ═══════════════════════════════════════════
+   WORKER LOCATIONS MAP
+   GET /api/admin/workers/locations
+   Returns every worker's last known location for the admin map view.
+═══════════════════════════════════════════ */
+export const getWorkerLocations = async (req, res) => {
+  try {
+    const workers = await Worker.find(
+      {},
+      "workerLocation isOnline status lastSeenAt services userId"
+    )
+      .populate("userId", "name email")
+      .lean();
+
+    // Only return workers who have ever sent a location ping
+    const located = workers.filter(
+      (w) => w.workerLocation && w.workerLocation.lat != null && w.workerLocation.lng != null
+    );
+
+    const result = located.map((w) => ({
+      _id: w._id,
+      name: w.userId?.name || "Unknown",
+      email: w.userId?.email || "",
+      isOnline: w.isOnline,
+      status: w.status,
+      lastSeenAt: w.lastSeenAt,
+      category: w.services?.[0]?.category || null,
+      lat: w.workerLocation.lat,
+      lng: w.workerLocation.lng,
+      locationUpdatedAt: w.workerLocation.updatedAt,
+    }));
+
+    return res.status(200).json({ success: true, workers: result });
+  } catch (err) {
+    console.error("getWorkerLocations error:", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+/* ═══════════════════════════════════════════
+   TASK LOCATIONS MAP
+   GET /api/admin/tasks/locations
+   Returns every task that has a valid location for the density map view.
+═══════════════════════════════════════════ */
+export const getTaskLocations = async (req, res) => {
+  try {
+    const tasks = await Task.find(
+      { location: { $ne: null } },
+      "location address title status createdAt price"
+    ).lean();
+
+    const result = tasks
+      .filter((t) => t.location?.coordinates?.length === 2)
+      .map((t) => ({
+        _id: t._id,
+        title: t.title,
+        status: t.status,
+        address: t.address,
+        price: t.price,
+        createdAt: t.createdAt,
+        // GeoJSON stores [lng, lat]
+        lat: t.location.coordinates[1],
+        lng: t.location.coordinates[0],
+      }));
+
+    return res.status(200).json({ success: true, tasks: result });
+  } catch (err) {
+    console.error("getTaskLocations error:", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};

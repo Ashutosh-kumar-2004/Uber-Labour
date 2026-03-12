@@ -27,6 +27,8 @@ import {
   setPlatformFee,
   getRejectedTasks,
   liftWorkerBan,
+  getWorkerLocations,
+  getTaskLocations,
 } from "../controller/adminController.js";
 
 const router = Router();
@@ -40,6 +42,7 @@ router.get("/stats", getDashboardStats);
 /* Workers */
 router.get("/workers", getAllWorkers);
 router.get("/workers/pending", getPendingWorkers);
+router.get("/workers/locations", getWorkerLocations);
 router.get("/workers/:id/profile", getWorkerProfile);
 router.patch("/workers/:id/approve", approveWorker);
 router.patch("/workers/:id/reject", rejectWorker);
@@ -54,6 +57,7 @@ router.patch("/users/:id/unban", unbanUser);
 
 /* Tasks */
 router.get("/tasks", getAllTasks);
+router.get("/tasks/locations", getTaskLocations);
 router.get("/tasks/:taskId/nearby-workers", getNearbyWorkers);
 router.patch("/tasks/:taskId/force-assign", forceAssignTask);
 

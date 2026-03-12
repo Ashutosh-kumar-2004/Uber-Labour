@@ -29,6 +29,8 @@ const ReviewsMonitor = lazy(() => import("../components/Admin/ReviewsMonitor"));
 const ReportsMonitor = lazy(() => import("../components/Admin/ReportsMonitor"));
 const PlatformFeeSettings = lazy(() => import("../components/Admin/PlatformFeeSettings"));
 const TaskRejectionsPanel = lazy(() => import("../components/Admin/TaskRejectionsPanel"));
+const WorkerLocationMap = lazy(() => import("../components/Admin/WorkerLocationMap"));
+const TaskDensityMap = lazy(() => import("../components/Admin/TaskDensityMap"));
 
 /* Redirects unauthenticated users to /login, preserving the attempted path */
 const ProtectedRoute = ({ children }) => {
@@ -95,6 +97,8 @@ const AppRoutes = () => {
           <Route path="reports" element={<ReportsMonitor />} />
           <Route path="finance" element={<PlatformFeeSettings />} />
           <Route path="rejections" element={<TaskRejectionsPanel />} />
+          <Route path="worker-map" element={<WorkerLocationMap />} />
+          <Route path="task-density" element={<TaskDensityMap />} />
         </Route>
       </Routes>
     </Suspense>

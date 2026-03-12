@@ -47,8 +47,6 @@ const userSchema = new mongoose.Schema(
     },
     contactNumber: {
       type: String,
-      unique: true,
-      sparse: true,
       trim: true,
       match: [/^\d{10}$/, "Please enter a valid 10-digit contact number"],
     },
