@@ -3,18 +3,19 @@ import { useSelector } from "react-redux";
 import { ChevronDown, X, Camera } from "lucide-react";
 import {
   TIME_SLOTS,
-  TASK_CATEGORIES,
   TASK_FORM_DEFAULTS,
   MAX_DESCRIPTION_LENGTH,
   PHONE_REGEX,
 } from "../../constants/task.constants";
 import Map from "../../map/User/Map";
 import useCreateWork from "../../hooks/user/useCreateWork.jsx";
+import useCategories from "../../hooks/useCategories";
 
 export default function CreateTask({ onClose }) {
   const [formData, setFormData] = useState(TASK_FORM_DEFAULTS);
   const [previewImage, setPreviewImage] = useState(null);
   const storedLocation = useSelector((state) => state.user.location);
+  const { categories, loading: categoriesLoading } = useCategories();
 
   // Initialize with stored location if available and not already set
   useEffect(() => {
@@ -29,14 +30,14 @@ export default function CreateTask({ onClose }) {
   }, [storedLocation]);
 
   const selectedCategory = useMemo(
-    () => TASK_CATEGORIES.find((c) => c.id === formData.category),
-    [formData.category],
+    () => categories.find((c) => c._id === formData.category),
+    [formData.category, categories],
   );
 
   const selectedSubCategory = useMemo(
     () =>
       selectedCategory?.subCategories.find(
-        (s) => s.label === formData.subcategory,
+        (s) => s.name === formData.subcategory,
       ),
     [formData.subcategory, selectedCategory],
   );
@@ -275,11 +276,15 @@ export default function CreateTask({ onClose }) {
                       required
                     >
                       <option value="">Select Category</option>
-                      {TASK_CATEGORIES.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.label}
-                        </option>
-                      ))}
+                      {categoriesLoading ? (
+                        <option disabled>Loading...</option>
+                      ) : (
+                        categories.map((c) => (
+                          <option key={c._id} value={c._id}>
+                            {c.name}
+                          </option>
+                        ))
+                      )}
                     </select>
                     <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-gray-500">
                       <ChevronDown size={16} />
@@ -301,8 +306,8 @@ export default function CreateTask({ onClose }) {
                     >
                       <option value="">Select Subcategory</option>
                       {selectedCategory?.subCategories.map((s) => (
-                        <option key={s.label} value={s.label}>
-                          {s.label}
+                        <option key={s.name} value={s.name}>
+                          {s.name}
                         </option>
                       ))}
                     </select>

@@ -9,6 +9,7 @@ import useCompleteTask from "../../hooks/worker/useCompleteTask";
 import useRejectTask from "../../hooks/worker/useRejectTask";
 import useWorkerNotifications from "../../hooks/worker/useWorkerNotifications";
 import useOTPActions from "../../hooks/worker/useOTPActions";
+import useCategories from "../../hooks/useCategories";
 import TaskDetailsModal from "./TaskDetailsModal";
 import WorkerNavigationMap from "./WorkerNavigationMap";
 import useLocationBroadcast, {
@@ -67,6 +68,7 @@ const WorkerDashboard = () => {
     fetchTasks,
     setError: setTasksError,
   } = useAvailableTasks();
+  const { categories } = useCategories();
   const {
     acceptTask,
     loading: acceptLoading,
@@ -183,8 +185,9 @@ const WorkerDashboard = () => {
   ]);
 
   // ── Real-time GPS tracking (active only when task exists) ──
-  const { isTracking, speed, bearing, workerCoords } =
-    useLocationBroadcast(activeTask?._id || null);
+  const { isTracking, speed, bearing, workerCoords } = useLocationBroadcast(
+    activeTask?._id || null,
+  );
   // ... (Fetch tasks effect remains same) ...
   useEffect(() => {
     if (worker) {
@@ -200,6 +203,21 @@ const WorkerDashboard = () => {
   const isBanned =
     worker?.banExpiresAt && new Date(worker.banExpiresAt) > new Date();
   const banExpiresAt = worker?.banExpiresAt;
+  const getTaskWorkerPercent = (task) => {
+    if (typeof task?.workerFeePercent === "number") return task.workerFeePercent;
+    if (typeof task?.platformFeePercent === "number") {
+      return 100 - task.platformFeePercent;
+    }
+    return 90;
+  };
+
+  const getTaskWorkerEarnings = (task) =>
+    Math.round((task?.price || 0) * (getTaskWorkerPercent(task) / 100));
+
+  const resolveTaskTypeLabel = (taskType) => {
+    if (!taskType) return "";
+    return categories.find((category) => category._id === taskType)?.name || taskType;
+  };
 
   // If banned, show BannedScreen
   if (isBanned) {
@@ -243,12 +261,13 @@ const WorkerDashboard = () => {
       return;
     }
 
+    if (activeTask) {
+      alert("You cannot change availability while you have an active task.");
+      return;
+    }
+
     try {
       const newStatus = !isOnline;
-      if (!newStatus && activeTask) {
-        alert("You cannot go offline while you have an active task.");
-        return;
-      }
       setIsOnline(newStatus);
       await setAvailability(newStatus);
       refetchProfile();
@@ -318,8 +337,19 @@ const WorkerDashboard = () => {
       await refetchProfile();
       setShowSuccessModal(true);
     } catch (err) {
+      if (err.response?.data?.hasActiveTask) {
+        setSelectedTask(null);
+        setTimeout(() => {
+          document
+            .getElementById("active-task-section")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 100);
+        return;
+      }
       console.error("Failed to accept task", err);
-      setTasksError(err.message || "Failed to accept task");
+      setTasksError(
+        err.response?.data?.message || err.message || "Failed to accept task",
+      );
     }
   };
 
@@ -419,6 +449,9 @@ const WorkerDashboard = () => {
         isOpen={!!selectedTask}
         onClose={() => setSelectedTask(null)}
         task={selectedTask}
+        hasActiveTask={!!activeTask}
+        hasOutstandingFees={(worker?.outstandingFines || 0) > 0}
+        outstandingFeeAmount={worker?.outstandingFines || 0}
         onAccept={handleAcceptTask}
         loading={acceptLoading}
         workerLocation={worker?.currentLocation}
@@ -476,17 +509,17 @@ const WorkerDashboard = () => {
             ) : (
               <>
                 <span
-                  className={`text-[10px] font-black uppercase tracking-widest ${isOnline ? "text-green-600" : "text-gray-400"}`}
+                  className={`text-[10px] font-black uppercase tracking-widest ${activeTask || isOnline ? "text-green-600" : "text-gray-400"}`}
                 >
-                  {isOnline ? "Online" : "Offline"}
+                  {activeTask ? "Busy" : isOnline ? "Online" : "Offline"}
                 </span>
                 <button
                   onClick={handleToggleAvailability}
-                  disabled={toggleLoading || profileLoading}
-                  className={`w-14 h-8 rounded-full flex items-center p-1 transition-all duration-300 ${isOnline ? "bg-black" : "bg-gray-200"} ${toggleLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+                  disabled={toggleLoading || profileLoading || !!activeTask}
+                  className={`w-14 h-8 rounded-full flex items-center p-1 transition-all duration-300 ${activeTask || isOnline ? "bg-black" : "bg-gray-200"} ${toggleLoading || activeTask ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   <div
-                    className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-300 ${isOnline ? "translate-x-6" : "translate-x-0"} flex items-center justify-center`}
+                    className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-300 ${activeTask || isOnline ? "translate-x-6" : "translate-x-0"} flex items-center justify-center`}
                   >
                     <Power
                       size={12}
@@ -673,7 +706,10 @@ const WorkerDashboard = () => {
 
         {/* ACTIVE TASK CARD */}
         {activeTask && (
-          <div className="bg-black text-white rounded-3xl p-8 relative overflow-hidden shadow-2xl animate-fade-in-up">
+          <div
+            id="active-task-section"
+            className="bg-black text-white rounded-3xl p-8 relative overflow-hidden shadow-2xl animate-fade-in-up"
+          >
             {/* Background Blobs */}
             <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-green-500/20 rounded-full blur-3xl animate-pulse"></div>
             <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
@@ -721,11 +757,14 @@ const WorkerDashboard = () => {
                   <div className="flex items-center gap-2 text-gray-400 mb-1">
                     <IndianRupee size={14} />
                     <span className="text-[10px] font-bold uppercase tracking-widest">
-                      Earnings
+                      Task Price
                     </span>
                   </div>
                   <p className="text-2xl font-black tracking-tighter">
                     ₹{activeTask.price}
+                  </p>
+                  <p className="text-[10px] font-bold text-gray-500 uppercase mt-1">
+                    Earning: ₹{getTaskWorkerEarnings(activeTask)}
                   </p>
                 </div>
                 <div className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
@@ -1032,107 +1071,112 @@ const WorkerDashboard = () => {
                   Try increasing distance
                 </button>
               </div>
-            ) : (() => {
-              const q = searchQuery.trim().toLowerCase();
-              const filteredTasks = q
-                ? tasks.filter(
-                    (t) =>
-                      t.title?.toLowerCase().includes(q) ||
-                      t.taskType?.toLowerCase().includes(q) ||
-                      t.subcategory?.toLowerCase().includes(q) ||
-                      t.address?.toLowerCase().includes(q)
-                  )
-                : tasks;
+            ) : (
+              (() => {
+                const q = searchQuery.trim().toLowerCase();
+                const filteredTasks = q
+                  ? tasks.filter(
+                      (t) =>
+                        t.title?.toLowerCase().includes(q) ||
+                        resolveTaskTypeLabel(t.taskType)?.toLowerCase().includes(q) ||
+                        t.subcategory?.toLowerCase().includes(q) ||
+                        t.address?.toLowerCase().includes(q),
+                    )
+                  : tasks;
 
-              if (filteredTasks.length === 0) {
-                return (
-                  <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm">
-                    <Search size={28} className="mx-auto mb-3 text-gray-300" />
-                    <p className="text-gray-400 font-bold uppercase tracking-widest text-sm italic">
-                      No tasks match "{searchQuery}"
-                    </p>
-                    <button
-                      onClick={() => setSearchQuery("")}
-                      className="mt-4 text-xs font-bold underline"
-                    >
-                      Clear search
-                    </button>
-                  </div>
-                );
-              }
-
-              return (
-              <div className="space-y-4">
-                {filteredTasks.map((task) => {
-                  const dist = calculateDistance(task.location);
+                if (filteredTasks.length === 0) {
                   return (
-                    <div
-                      key={task._id}
-                      className="bg-white border border-gray-200 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-black transition-all group shadow-sm hover:shadow-md"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="px-2 py-0.5 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded">
-                            {task.taskType}
-                          </span>
-                          {task.subcategory && (
-                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold uppercase tracking-widest rounded">
-                              {task.subcategory}
-                            </span>
-                          )}
-                        </div>
-                        <h4 className="text-lg font-black uppercase tracking-tighter group-hover:text-blue-600 transition-colors">
-                          {task.title}
-                        </h4>
-
-                        {/* Address */}
-                        <div className="flex items-center gap-1.5 mt-1 mb-2">
-                          <MapIcon size={12} className="text-gray-400" />
-                          <p className="text-xs font-bold text-gray-500 line-clamp-1">
-                            {task.address || "Location not specified"}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-4 mt-3 text-gray-400 text-xs font-medium">
-                          <div className="flex items-center gap-1">
-                            <Navigation
-                              size={14}
-                              className={
-                                dist && dist < 5 ? "text-green-600" : ""
-                              }
-                            />
-                            {dist ? `${dist} km away` : "Nearby"}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock size={14} />
-                            {task.estimatedDurationMinutes
-                              ? `${task.estimatedDurationMinutes} mins`
-                              : "Flexible"}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4 border-t md:border-t-0 pt-4 md:pt-0 mt-2 md:mt-0">
-                        <div className="text-right">
-                          <p className="text-2xl font-black tracking-tighter">
-                            ₹{task.price}
-                          </p>
-                          <p className="text-[10px] font-bold text-gray-400 uppercase">
-                            You Keep 85%
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => setSelectedTask(task)}
-                          className="bg-black text-white p-4 rounded-xl hover:bg-zinc-800 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1"
-                        >
-                          <ArrowUpRight size={20} />
-                        </button>
-                      </div>
+                    <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm">
+                      <Search
+                        size={28}
+                        className="mx-auto mb-3 text-gray-300"
+                      />
+                      <p className="text-gray-400 font-bold uppercase tracking-widest text-sm italic">
+                        No tasks match "{searchQuery}"
+                      </p>
+                      <button
+                        onClick={() => setSearchQuery("")}
+                        className="mt-4 text-xs font-bold underline"
+                      >
+                        Clear search
+                      </button>
                     </div>
                   );
-                })}
-              </div>
-              );
-            })()}
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {filteredTasks.map((task) => {
+                      const dist = calculateDistance(task.location);
+                      return (
+                        <div
+                          key={task._id}
+                          className="bg-white border border-gray-200 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-black transition-all group shadow-sm hover:shadow-md"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="px-2 py-0.5 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded">
+                                {resolveTaskTypeLabel(task.taskType)}
+                              </span>
+                              {task.subcategory && (
+                                <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold uppercase tracking-widest rounded">
+                                  {task.subcategory}
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="text-lg font-black uppercase tracking-tighter group-hover:text-blue-600 transition-colors">
+                              {task.title}
+                            </h4>
+
+                            {/* Address */}
+                            <div className="flex items-center gap-1.5 mt-1 mb-2">
+                              <MapIcon size={12} className="text-gray-400" />
+                              <p className="text-xs font-bold text-gray-500 line-clamp-1">
+                                {task.address || "Location not specified"}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-4 mt-3 text-gray-400 text-xs font-medium">
+                              <div className="flex items-center gap-1">
+                                <Navigation
+                                  size={14}
+                                  className={
+                                    dist && dist < 5 ? "text-green-600" : ""
+                                  }
+                                />
+                                {dist ? `${dist} km away` : "Nearby"}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Clock size={14} />
+                                {task.estimatedDurationMinutes
+                                  ? `${task.estimatedDurationMinutes} mins`
+                                  : "Flexible"}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 border-t md:border-t-0 pt-4 md:pt-0 mt-2 md:mt-0">
+                            <div className="text-right">
+                              <p className="text-2xl font-black tracking-tighter">
+                                ₹{task.price}
+                              </p>
+                              <p className="text-[10px] font-bold text-gray-400 uppercase">
+                                Earning: ₹{getTaskWorkerEarnings(task)}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => setSelectedTask(task)}
+                              className="bg-black text-white p-4 rounded-xl hover:bg-zinc-800 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1"
+                            >
+                              <ArrowUpRight size={20} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()
+            )}
           </div>
 
           {/* Quick Actions / Recent Activity */}

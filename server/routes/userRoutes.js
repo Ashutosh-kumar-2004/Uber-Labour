@@ -1,5 +1,6 @@
 import express from "express";
 import { createWork, getMyWorks, deleteWork, renewTask, submitReview, getTaskReview, submitReport, getMyReviews } from "../controller/userController.js";
+import { getCategories } from "../controller/workerController.js";
 const router = express.Router();
 
 router.post("/create", createWork);
@@ -12,5 +13,6 @@ router.post("/task/:taskId/review", submitReview);
 router.get("/task/:taskId/review", getTaskReview);
 router.post("/task/:taskId/report", submitReport);
 router.get("/reviews", getMyReviews);
+router.get("/categories", getCategories);               // dynamic categories for task creation
 
 export default router;

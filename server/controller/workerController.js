@@ -4,6 +4,8 @@ import Worker from "../modal/Worker.model.js";
 import User from "../modal/User.js";
 import Task from "../modal/user/Task.model.js";
 import Review from "../modal/Review.model.js";
+import { PlatformFee } from "../modal/PlatformFee.model.js";
+import { Category } from "../modal/user/CategorySchema.modal.js";
 import "../modal/TaskRejection.model.js"; // Import model to register schema
 import {
   notifyTaskAccepted,
@@ -62,10 +64,38 @@ export const getWorkerHistory = async (req, res) => {
   }
 };
 
+export const getWorkerPlatformFee = async (req, res) => {
+  try {
+    let fee = await PlatformFee.findOne().lean();
+    if (!fee) {
+      fee = await PlatformFee.create({ feePercent: 10 });
+    }
+
+    return res.status(200).json({
+      success: true,
+      feePercent: fee.feePercent,
+      workerPercent: 100 - fee.feePercent,
+    });
+  } catch (err) {
+    console.error("getWorkerPlatformFee error:", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
 /* ══════════════════════════════════════════════════
    GET WORKER REVIEWS — paginated reviews received by the worker
    GET /api/worker/reviews?page=1&limit=10
 ══════════════════════════════════════════════════ */
+export const getCategories = async (req, res) => {
+  try {
+    const categories = await Category.find().sort({ name: 1 }).lean();
+    return res.status(200).json({ success: true, categories });
+  } catch (err) {
+    console.error("getCategories error:", err);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
 export const getWorkerReviews = async (req, res) => {
   try {
     const worker = await Worker.findOne({ userId: req.user._id });
@@ -219,6 +249,15 @@ export const acceptTask = async (req, res) => {
       });
     }
 
+    if ((worker.outstandingFines || 0) > 0) {
+      return res.status(403).json({
+        success: false,
+        hasOutstandingPlatformFee: true,
+        amountDue: worker.outstandingFines,
+        message: `Clear your previous platform fee dues of ₹${worker.outstandingFines} before accepting a new task.`,
+      });
+    }
+
     // 2️⃣ Online / Busy Logic
     if (!worker.isOnline) {
       const activeTask = await Task.findOne({
@@ -234,6 +273,21 @@ export const acceptTask = async (req, res) => {
       }
       // If activeTask exists → worker is busy → allow queueing
     }
+
+      // 3️⃣ Block if worker already has an active task
+      const existingActiveTask = await Task.findOne({
+        assignedWorkerId: worker._id,
+        status: { $in: ["assigned", "arrived", "inProgress"] },
+      }).select("_id title").lean();
+
+      if (existingActiveTask) {
+        return res.status(409).json({
+          success: false,
+          hasActiveTask: true,
+          activeTaskId: existingActiveTask._id,
+          message: "You already have an active task. Complete it before accepting a new one.",
+        });
+      }
 
     /* =========================
        FIRST TAP WINS (ATOMIC)
@@ -263,13 +317,6 @@ export const acceptTask = async (req, res) => {
         message: "Task already taken or expired",
       });
     }
-
-    /* =========================
-       MARK WORKER BUSY
-    ========================= */
-    await Worker.findByIdAndUpdate(worker._id, {
-      isOnline: false,
-    });
 
     /* =========================
        NOTIFICATIONS
@@ -465,9 +512,13 @@ export const completeTask = async (req, res) => {
     ========================= */
     const { workSummary } = req.body;
 
+    const platformFeeAmount = Math.round(
+      (task.price || 0) * ((task.platformFeePercent ?? 10) / 100),
+    );
+
     task.status = "completed";
     task.completedAt = new Date();
-    task.paymentStatus = "released";
+    task.paymentStatus = platformFeeAmount > 0 ? "held" : "released";
     if (workSummary) task.workSummary = workSummary;
     await task.save();
 
@@ -475,7 +526,10 @@ export const completeTask = async (req, res) => {
        UPDATE WORKER METRICS
     ========================= */
     await Worker.findByIdAndUpdate(worker._id, {
-      $inc: { completedTasks: 1 },
+      $inc: {
+        completedTasks: 1,
+        outstandingFines: platformFeeAmount,
+      },
       isOnline: true,
     });
 

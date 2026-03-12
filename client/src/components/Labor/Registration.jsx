@@ -9,11 +9,12 @@ import {
 import useWorkerRegistration from "../../hooks/user/useWorkerRegistration";
 import { useNavigate, Link } from "react-router-dom";
 import axiosInstance from "../../api/axios";
+import useCategories from "../../hooks/useCategories";
 
 const Registration = () => {
   const [step, setStep] = useState(1); // 1: Info, 2: Upload, 3: Pending
   const [formData, setFormData] = useState({
-    primarySkill: "Construction & Renovation",
+    primarySkill: "",
     contactNumber: "",
     experience: "",
     adharCardNumber: "",
@@ -23,6 +24,7 @@ const Registration = () => {
   const [preview, setPreview] = useState(null);
   const navigate = useNavigate();
   const { registerWorker, loading, error } = useWorkerRegistration();
+  const { categories: skillCategories, loading: categoriesLoading } = useCategories();
 
   // null = loading, "none" = no record, "pending" | "rejected" | "verified"
   const [workerStatus, setWorkerStatus] = useState(null);
@@ -209,11 +211,18 @@ const Registration = () => {
                   value={formData.primarySkill}
                   onChange={handleChange}
                   className="w-full p-4 border-2 border-black rounded-xl font-bold appearance-none bg-white focus:ring-4 focus:ring-gray-100 transition-all"
+                  required
                 >
-                  <option>Construction & Renovation</option>
-                  <option>Maintenance & Repair</option>
-                  <option>Household & Lifestyle</option>
-                  <option>Design & Installation</option>
+                  <option value="">Select a skill</option>
+                  {categoriesLoading ? (
+                    <option disabled>Loading...</option>
+                  ) : (
+                    skillCategories.map((cat) => (
+                      <option key={cat._id} value={cat.name}>
+                        {cat.name}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 

@@ -178,6 +178,16 @@ const taskSchema = new mongoose.Schema(
       default: "INR"
     },
 
+    /* Fee snapshot at time of task creation */
+    platformFeePercent: {
+      type: Number,
+      default: null
+    },
+    workerFeePercent: {
+      type: Number,
+      default: null
+    },
+
     /* =======================
        PAYMENT
     ======================= */

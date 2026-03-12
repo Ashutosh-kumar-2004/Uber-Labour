@@ -4,6 +4,8 @@ import User from "../modal/User.js";
 import Worker from "../modal/Worker.model.js";
 import Review from "../modal/Review.model.js";
 import Report from "../modal/Report.model.js";
+import { PlatformFee } from "../modal/PlatformFee.model.js";
+import { Category } from "../modal/user/CategorySchema.modal.js";
 import {
   ACTIVE_STATUSES,
   CANCELLATION_FINE,
@@ -64,14 +66,23 @@ export const createWork = async (req, res) => {
     // This prevents tasks with past/midnight scheduledDate from immediately expiring
     const expiresAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
 
+    const feeDoc = await PlatformFee.findOne().lean();
+    const platformFeePercent = feeDoc?.feePercent ?? 10;
+    const workerFeePercent = 100 - platformFeePercent;
+
+    const categoryDoc = await Category.findById(category).select("name").lean();
+    const taskType = categoryDoc?.name || category;
+
     // Create the task
     const task = new Task({
       userId: req.user._id,
       title: taskTitle,
       description,
-      taskType: category,
+      taskType,
       subcategory,
       price: cost,
+      platformFeePercent,
+      workerFeePercent,
       scheduledStartAt: scheduledDate,
       expiresAt, // ← 3 days from now (creation time)
       availabilityTimeSlots,

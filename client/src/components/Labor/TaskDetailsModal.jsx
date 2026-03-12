@@ -11,9 +11,21 @@ import {
   CheckCircle
 } from 'lucide-react';
 import Map from '../../map/User/Map';
+import useCategories from '../../hooks/useCategories';
 
-const TaskDetailsModal = ({ task, onClose, onAccept, accepting, isActiveTask, onReject, onNavigate, onComplete, onMarkArrived, arrivedLoading, activeTaskStatus }) => {
+const TaskDetailsModal = ({ task, onClose, onAccept, accepting, isActiveTask, hasActiveTask, hasOutstandingFees, outstandingFeeAmount, onReject, onNavigate, onComplete, onMarkArrived, arrivedLoading, activeTaskStatus }) => {
   if (!task) return null;
+
+  const { categories } = useCategories();
+
+  const resolvedWorkerPercent =
+    typeof task.workerFeePercent === 'number'
+      ? task.workerFeePercent
+      : typeof task.platformFeePercent === 'number'
+        ? 100 - task.platformFeePercent
+        : 90;
+  const workerKeeps = Math.round((task.price || 0) * (resolvedWorkerPercent / 100));
+  const resolvedTaskType = categories.find((category) => category._id === task.taskType)?.name || task.taskType;
 
   // Format date
   const formatDate = (dateString) => {
@@ -34,7 +46,7 @@ const TaskDetailsModal = ({ task, onClose, onAccept, accepting, isActiveTask, on
     : null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col md:flex-row relative animate-scale-in">
 
         {/* Close Button */}
@@ -54,7 +66,7 @@ const TaskDetailsModal = ({ task, onClose, onAccept, accepting, isActiveTask, on
           />
 
           {/* Map Overlay Info */}
-          <div className="absolute bottom-4 left-4 right-4 bg-white/90 backdrop-blur px-4 py-3 rounded-xl shadow-lg border border-gray-100 z-[1000]">
+          <div className="absolute bottom-4 left-4 right-4 bg-white/90 backdrop-blur px-4 py-3 rounded-xl shadow-lg border border-gray-100 z-1000">
             <div className="flex items-start gap-3">
               <div className="bg-black p-2 rounded-lg text-white">
                 <Navigation size={18} />
@@ -74,7 +86,7 @@ const TaskDetailsModal = ({ task, onClose, onAccept, accepting, isActiveTask, on
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">
               <span className="px-3 py-1 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-full">
-                {task.taskType}
+                {resolvedTaskType}
               </span>
               {task.subcategory && (
                 <span className="px-3 py-1 bg-gray-100 text-gray-600 text-[10px] font-bold uppercase tracking-widest rounded-full">
@@ -98,15 +110,18 @@ const TaskDetailsModal = ({ task, onClose, onAccept, accepting, isActiveTask, on
           {/* Price Card */}
           <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 mb-6 flex justify-between items-center">
             <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Earning Potential</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Task Price</p>
               <h3 className="text-3xl font-black tracking-tighter flex items-center">
                 <IndianRupee size={24} strokeWidth={3} />
                 {task.price}
               </h3>
+              <p className="text-sm font-bold text-gray-600 tracking-wide mt-2">
+                Earnings: ₹{workerKeeps}
+              </p>
             </div>
             <div className="text-right">
               <p className="text-xs font-bold text-green-600 uppercase tracking-widest bg-green-100 px-2 py-1 rounded-lg">
-                Instant Payment
+                {resolvedWorkerPercent}% after platform fee
               </p>
             </div>
           </div>
@@ -128,7 +143,7 @@ const TaskDetailsModal = ({ task, onClose, onAccept, accepting, isActiveTask, on
           </div>
 
           {/* Description */}
-          <div className="mb-8 flex-grow">
+          <div className="mb-8 grow">
             <h4 className="text-sm font-black uppercase tracking-widest mb-3 flex items-center gap-2">
               <Briefcase size={16} /> Task Description
             </h4>
@@ -181,6 +196,30 @@ const TaskDetailsModal = ({ task, onClose, onAccept, accepting, isActiveTask, on
                 </div>
                 <p className="text-center text-[10px] text-gray-400 font-medium mt-3">
                   You've already accepted this task.
+                </p>
+              </>
+            ) : hasOutstandingFees ? (
+              <>
+                <button
+                  disabled
+                  className="w-full bg-amber-100 text-amber-700 py-4 rounded-xl font-black uppercase tracking-widest text-sm cursor-not-allowed flex items-center justify-center gap-3 border border-amber-200"
+                >
+                  <ShieldCheck size={18} /> Clear Previous Platform Fee First
+                </button>
+                <p className="text-center text-[10px] text-gray-400 font-medium mt-3">
+                  Outstanding fee due: ₹{outstandingFeeAmount}
+                </p>
+              </>
+            ) : hasActiveTask ? (
+              <>
+                <button
+                  disabled
+                  className="w-full bg-gray-200 text-gray-500 py-4 rounded-xl font-black uppercase tracking-widest text-sm cursor-not-allowed flex items-center justify-center gap-3"
+                >
+                  <ShieldCheck size={18} /> Complete Your Active Task First
+                </button>
+                <p className="text-center text-[10px] text-gray-400 font-medium mt-3">
+                  You already have an active task. Finish it before accepting another one.
                 </p>
               </>
             ) : (
