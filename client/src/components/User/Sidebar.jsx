@@ -5,6 +5,7 @@ import {
   User,
   Star,
   ClipboardList,
+  Wallet,
   LogOut,
   ChevronRight,
   Briefcase,
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
   { icon: User,          label: "My Profile",  path: "/user/profile" },
   { icon: ClipboardList, label: "My Tasks",    path: "/user" },
   { icon: Star,          label: "My Reviews",  path: "/user/reviews" },
+  { icon: Wallet,        label: "Payments",    path: "/user/payments" },
 ];
 
 const Sidebar = ({ isOpen, onClose }) => {

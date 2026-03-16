@@ -10,6 +10,7 @@ import PageLoader from "../components/constants/PageLoader";
 const User_Dashboard = lazy(() => import("../components/User/User_Dashboard"));
 const CreateTask = lazy(() => import("../components/User/CreateTask"));
 const UserProfile = lazy(() => import("../components/User/UserProfile"));
+const UserPayments = lazy(() => import("../components/User/UserPayments"));
 const Registration = lazy(() => import("../components/Labor/Registration"));
 const WorkerDashboard = lazy(() => import("../components/Labor/WorkerDashboard"));
 const WorkerProfile = lazy(() => import("../components/Labor/WorkerProfile"));
@@ -74,6 +75,7 @@ const AppRoutes = () => {
         <Route path="/user/profile"     element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
         <Route path="/user/hire"        element={<ProtectedRoute><CreateTask /></ProtectedRoute>} />
         <Route path="/user/reviews"     element={<ProtectedRoute><MyReviews /></ProtectedRoute>} />
+        <Route path="/user/payments"    element={<ProtectedRoute><UserPayments /></ProtectedRoute>} />
 
         {/* Labor routes - require login */}
         <Route path="/worker"           element={<ProtectedRoute><Registration /></ProtectedRoute>} />

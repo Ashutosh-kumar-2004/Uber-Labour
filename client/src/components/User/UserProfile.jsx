@@ -11,9 +11,7 @@ import {
   Calendar,
   LogOut,
   ChevronRight,
-  User as UserIcon,
   Star,
-  Edit3,
 } from "lucide-react";
 
 const UserProfile = () => {
@@ -45,11 +43,11 @@ const UserProfile = () => {
       <main className="max-w-2xl mx-auto p-6 space-y-6">
         {/* ── Avatar Card ── */}
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 h-28 relative">
+          <div className="bg-linear-to-r from-zinc-900 via-zinc-800 to-zinc-900 h-28 relative">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(255,255,255,0.08),transparent)]" />
           </div>
           <div className="px-6 pb-6 -mt-12 flex flex-col items-center text-center">
-            <div className="w-24 h-24 bg-white rounded-full border-4 border-white shadow-xl flex items-center justify-center text-3xl font-black text-zinc-400 bg-zinc-100">
+            <div className="w-24 h-24 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-3xl font-black text-zinc-400 bg-zinc-100">
               {user?.name?.[0] || "U"}
             </div>
             <h2 className="text-xl font-black mt-3 text-gray-900">
@@ -95,13 +93,13 @@ const UserProfile = () => {
 
           <ActionRow
             icon={<Edit3 size={16} className="text-blue-500" />}
-            label="Edit Profile"
-            onClick={() => { }}
+            label="Payments"
+            onClick={() => navigate("/user/payments")}
           />
           <ActionRow
             icon={<Star size={16} className="text-amber-500" />}
             label="My Reviews"
-            onClick={() => { }}
+            onClick={() => navigate("/user/reviews")}
           />
           <ActionRow
             icon={<LogOut size={16} className="text-red-500" />}
