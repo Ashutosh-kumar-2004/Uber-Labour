@@ -1,22 +1,141 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { usePopup } from "../../context/PopupContext.jsx";
+import useUserProfile from "../../hooks/user/useUserProfile.jsx";
 import {
   ArrowLeft,
   Mail,
   Phone,
-  MapPin,
-  Shield,
   Wallet,
-  Calendar,
-  LogOut,
-  ChevronRight,
-  Star,
+  CheckCircle,
+  Upload,
+  Trash2,
+  Save,
+  User as UserIcon,
 } from "lucide-react";
 
 const UserProfile = () => {
-  const { user, logout } = useAuth();
+  const { user: authUser, logout } = useAuth();
+  const { showPopup } = usePopup();
+  const { user: profileUser, loading, updateProfile } = useUserProfile();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("contact");
+  const [profilePreview, setProfilePreview] = useState("");
+  const [profileFile, setProfileFile] = useState(null);
+  const [removeProfileImage, setRemoveProfileImage] = useState(false);
+  const [savingImage, setSavingImage] = useState(false);
+  const [savingDetails, setSavingDetails] = useState(false);
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    contactNumber: "",
+    address: "",
+  });
+
+  const user = profileUser || authUser;
+
+  useEffect(() => {
+    setProfilePreview(user?.profileImage || "");
+    setProfileFile(null);
+    setRemoveProfileImage(false);
+  }, [user?.profileImage]);
+
+  useEffect(() => {
+    setForm({
+      name: user?.name || "",
+      email: user?.email || "",
+      contactNumber: user?.contactNumber || "",
+      address: user?.address || "",
+    });
+  }, [user?.name, user?.email, user?.contactNumber, user?.address]);
+
+  const handleFieldChange = (event) => {
+    const { name, value } = event.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const onProfileFileChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setProfileFile(file);
+    setRemoveProfileImage(false);
+    setProfilePreview(URL.createObjectURL(file));
+  };
+
+  const onRemoveProfileImage = () => {
+    setProfileFile(null);
+    setRemoveProfileImage(true);
+    setProfilePreview("");
+  };
+
+  const uploadToCloudinary = async (file) => {
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+    if (!cloudName || !uploadPreset) {
+      throw new Error("Cloudinary config is missing");
+    }
+
+    const data = new FormData();
+    data.append("file", file);
+    data.append("upload_preset", uploadPreset);
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      method: "POST",
+      body: data,
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to upload profile image");
+    }
+
+    const body = await response.json();
+    return body.secure_url;
+  };
+
+  const handleSaveImage = async () => {
+    setSavingImage(true);
+    try {
+      let profileImagePayload;
+      if (removeProfileImage) {
+        profileImagePayload = "";
+      } else if (profileFile) {
+        profileImagePayload = await uploadToCloudinary(profileFile);
+      }
+
+      if (profileImagePayload === undefined) {
+        showPopup({ type: "info", title: "No Changes", message: "Choose a new image or remove current one first." });
+        return;
+      }
+
+      await updateProfile({ profileImage: profileImagePayload });
+      setProfileFile(null);
+      setRemoveProfileImage(false);
+      showPopup({ type: "success", title: "Profile Updated", message: "Profile image updated successfully." });
+    } catch (error) {
+      showPopup({ type: "error", title: "Update Failed", message: error.response?.data?.message || "Could not update profile image" });
+    } finally {
+      setSavingImage(false);
+    }
+  };
+
+  const handleSaveDetails = async (event) => {
+    event.preventDefault();
+    setSavingDetails(true);
+    try {
+      await updateProfile({
+        name: form.name,
+        contactNumber: form.contactNumber,
+        address: form.address,
+      });
+      showPopup({ type: "success", title: "Profile Updated", message: "Contact details updated successfully." });
+    } catch (error) {
+      showPopup({ type: "error", title: "Update Failed", message: error.response?.data?.message || "Could not update profile" });
+    } finally {
+      setSavingDetails(false);
+    }
+  };
 
   const memberSince = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString("en-IN", {
@@ -24,6 +143,17 @@ const UserProfile = () => {
       year: "numeric",
     })
     : "N/A";
+
+  const walletBalance = user?.walletBalance ?? 0;
+  const isInDebt = walletBalance < 0;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-3 border-black border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -40,106 +170,200 @@ const UserProfile = () => {
         </span>
       </nav>
 
-      <main className="max-w-2xl mx-auto p-6 space-y-6">
-        {/* ── Avatar Card ── */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="bg-linear-to-r from-zinc-900 via-zinc-800 to-zinc-900 h-28 relative">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(255,255,255,0.08),transparent)]" />
-          </div>
-          <div className="px-6 pb-6 -mt-12 flex flex-col items-center text-center">
-            <div className="w-24 h-24 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-3xl font-black text-zinc-400 bg-zinc-100">
-              {user?.name?.[0] || "U"}
-            </div>
-            <h2 className="text-xl font-black mt-3 text-gray-900">
-              {user?.name || "User"}
-            </h2>
-            <span className="text-xs font-bold uppercase tracking-widest text-gray-400 bg-gray-100 px-3 py-1 rounded-full mt-1">
-              Job Poster
-            </span>
-          </div>
-        </div>
+      <main className="max-w-5xl mx-auto p-6">
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="grid md:grid-cols-[300px_1fr]">
+            <aside className="border-r border-gray-200 p-5 space-y-5 bg-gray-50/60">
+              <p className="text-xs font-bold tracking-wide text-gray-500 uppercase">
+                Account Management
+              </p>
 
-        {/* ── Info Card ── */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 divide-y divide-gray-50">
-          <div className="px-6 py-4">
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">
-              Account Details
-            </p>
+              <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                <div className="aspect-4/3 w-full rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden">
+                  {profilePreview ? (
+                    <img src={profilePreview} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-center text-gray-500 px-3">
+                      <UserIcon size={26} className="mx-auto mb-2" />
+                      <p className="text-xs font-medium">No profile image uploaded</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-3 flex items-center gap-2">
+                  <label className="inline-flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 text-xs font-semibold hover:bg-gray-50 cursor-pointer">
+                    <Upload size={13} /> Change Image
+                    <input type="file" accept="image/*" className="hidden" onChange={onProfileFileChange} />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={onRemoveProfileImage}
+                    className="inline-flex items-center gap-1 border border-red-200 text-red-600 rounded-lg px-3 py-2 text-xs font-semibold hover:bg-red-50"
+                  >
+                    <Trash2 size={13} /> Remove
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={savingImage}
+                  onClick={handleSaveImage}
+                  className="mt-3 inline-flex items-center gap-1 bg-black text-white rounded-lg px-3 py-2 text-xs font-semibold hover:bg-zinc-800 disabled:opacity-60"
+                >
+                  <Save size={13} /> {savingImage ? "Saving..." : "Save Image"}
+                </button>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-2">
+                <p className="text-xs font-bold uppercase text-gray-500">Account</p>
+                <p className="text-sm font-semibold text-gray-800">Member since: {memberSince}</p>
+                <p className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-blue-50 text-blue-700">
+                  <CheckCircle size={12} /> {user?.isVerified ? "Verified" : "Unverified"}
+                </p>
+              </div>
+            </aside>
+
+            <section className="p-5 md:p-6">
+              <div className="flex items-center gap-2 border-b border-gray-200 pb-4 mb-6">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("contact")}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    activeTab === "contact"
+                      ? "bg-black text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  Contact Details
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("wallet")}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    activeTab === "wallet"
+                      ? "bg-black text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  Wallet
+                </button>
+              </div>
+
+              {activeTab === "contact" ? (
+                <form onSubmit={handleSaveDetails} className="space-y-6">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Contact Details</h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Update your account details. Email is locked.
+                    </p>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Name</label>
+                      <input
+                        name="name"
+                        value={form.name}
+                        onChange={handleFieldChange}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20"
+                        placeholder="Your full name"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Email (read-only)</label>
+                      <div className="relative">
+                        <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          name="email"
+                          value={form.email}
+                          readOnly
+                          disabled
+                          className="w-full border border-gray-200 bg-gray-100 rounded-lg pl-9 pr-3 py-2.5 text-sm text-gray-500 cursor-not-allowed"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Phone</label>
+                      <div className="relative">
+                        <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          name="contactNumber"
+                          value={form.contactNumber}
+                          onChange={handleFieldChange}
+                          maxLength={10}
+                          className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20"
+                          placeholder="10-digit phone"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Address</label>
+                    <textarea
+                      name="address"
+                      value={form.address}
+                      onChange={handleFieldChange}
+                      rows={4}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20"
+                      placeholder="Your address"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={savingDetails}
+                    className="inline-flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-zinc-800 disabled:opacity-60"
+                  >
+                    <Save size={14} /> {savingDetails ? "Saving..." : "Save Changes"}
+                  </button>
+                </form>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Wallet</h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Track your current wallet status and payment health.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+                    <p className="text-xs uppercase tracking-wide font-semibold text-gray-500 mb-2">Current Balance</p>
+                    <p className={`text-4xl font-black ${isInDebt ? "text-red-600" : "text-green-600"}`}>
+                      INR {walletBalance}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-2">
+                      {isInDebt
+                        ? "Your balance is negative. Please clear dues to avoid restrictions."
+                        : "Your account is in good standing."}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate("/user/payments")}
+                    className="inline-flex items-center gap-2 border border-gray-300 rounded-lg px-4 py-2 text-sm font-semibold hover:bg-gray-50"
+                  >
+                    <Wallet size={15} /> Open Payments
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="block text-sm font-semibold text-red-600 hover:text-red-700"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </section>
           </div>
-
-          <InfoRow icon={<Mail size={16} />} label="Email" value={user?.email || "—"} />
-          <InfoRow icon={<Phone size={16} />} label="Phone" value={user?.contactNumber || "Not set"} />
-          <InfoRow icon={<MapPin size={16} />} label="Address" value={user?.address || "Not set"} />
-          <InfoRow icon={<Shield size={16} />} label="Verified" value={user?.isVerified ? "✅ Yes" : "❌ No"} />
-          <InfoRow icon={<Calendar size={16} />} label="Member Since" value={memberSince} />
-          <InfoRow
-            icon={<Wallet size={16} />}
-            label="Wallet"
-            value={
-              <span className={user?.walletBalance < 0 ? "text-red-600" : "text-green-600"}>
-                ₹{user?.walletBalance ?? 0}
-              </span>
-            }
-          />
-        </div>
-
-        {/* ── Quick Actions ── */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 py-4">
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">
-              Quick Actions
-            </p>
-          </div>
-
-          <ActionRow
-            icon={<Edit3 size={16} className="text-blue-500" />}
-            label="Payments"
-            onClick={() => navigate("/user/payments")}
-          />
-          <ActionRow
-            icon={<Star size={16} className="text-amber-500" />}
-            label="My Reviews"
-            onClick={() => navigate("/user/reviews")}
-          />
-          <ActionRow
-            icon={<LogOut size={16} className="text-red-500" />}
-            label="Logout"
-            danger
-            onClick={() => logout()}
-          />
         </div>
       </main>
     </div>
   );
 };
-
-// ── Row helpers ─────────────────────────────────────
-const InfoRow = ({ icon, label, value }) => (
-  <div className="px-6 py-3.5 flex items-center gap-4">
-    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 shrink-0">
-      {icon}
-    </div>
-    <div className="flex-1 min-w-0">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
-        {label}
-      </p>
-      <p className="text-sm font-bold text-gray-900 truncate">{value}</p>
-    </div>
-  </div>
-);
-
-const ActionRow = ({ icon, label, danger = false, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`w-full px-6 py-3.5 flex items-center gap-4 hover:bg-gray-50 transition-colors ${danger ? "text-red-600" : "text-gray-700"
-      }`}
-  >
-    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-      {icon}
-    </div>
-    <span className="text-sm font-bold flex-1 text-left">{label}</span>
-    <ChevronRight size={16} className="text-gray-300" />
-  </button>
-);
 
 export default UserProfile;

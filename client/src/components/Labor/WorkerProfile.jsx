@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import useWorkerProfile from "../../hooks/worker/useWorkerProfile";
+import { usePopup } from "../../context/PopupContext.jsx";
 import {
   ArrowLeft,
   Save,
@@ -12,18 +13,20 @@ import {
   Shield,
   ExternalLink,
   User,
-  CircleCheck,
-  CircleX,
+  Upload,
+  Trash2,
 } from "lucide-react";
 
 const WorkerProfile = () => {
   const { user: authUser } = useAuth();
   const { data: profile, loading, updateProfile } = useWorkerProfile();
+  const { showPopup } = usePopup();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("contact");
   const [saving, setSaving] = useState(false);
-  const [popup, setPopup] = useState(null);
   const [profilePreview, setProfilePreview] = useState("");
+  const [profileFile, setProfileFile] = useState(null);
+  const [removeProfileImage, setRemoveProfileImage] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -42,6 +45,8 @@ const WorkerProfile = () => {
       address: profileUser?.address || "",
     });
     setProfilePreview(profileUser?.profileImage || "");
+    setProfileFile(null);
+    setRemoveProfileImage(false);
   }, [
     profileUser?.name,
     profileUser?.email,
@@ -67,23 +72,67 @@ const WorkerProfile = () => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const showPopup = (type, message) => {
-    setPopup({ type, message });
-    window.setTimeout(() => setPopup(null), 2500);
+  const onProfileFileChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setProfileFile(file);
+    setRemoveProfileImage(false);
+    setProfilePreview(URL.createObjectURL(file));
+  };
+
+  const onRemoveProfileImage = () => {
+    setProfileFile(null);
+    setRemoveProfileImage(true);
+    setProfilePreview("");
+  };
+
+  const uploadToCloudinary = async (file) => {
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+    if (!cloudName || !uploadPreset) {
+      throw new Error("Cloudinary config is missing");
+    }
+
+    const data = new FormData();
+    data.append("file", file);
+    data.append("upload_preset", uploadPreset);
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      method: "POST",
+      body: data,
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to upload profile image");
+    }
+
+    const body = await response.json();
+    return body.secure_url;
   };
 
   const handleSave = async (event) => {
     event.preventDefault();
     setSaving(true);
     try {
+      let profileImagePayload;
+      if (removeProfileImage) {
+        profileImagePayload = "";
+      } else if (profileFile) {
+        profileImagePayload = await uploadToCloudinary(profileFile);
+      }
+
       await updateProfile({
         name: form.name,
         contactNumber: form.contactNumber,
         address: form.address,
+        ...(profileImagePayload !== undefined ? { profileImage: profileImagePayload } : {}),
       });
-      showPopup("success", "Profile updated successfully.");
+      setProfileFile(null);
+      setRemoveProfileImage(false);
+      showPopup({ type: "success", title: "Profile Updated", message: "Profile updated successfully." });
     } catch (error) {
-      showPopup("error", error.response?.data?.message || "Could not update profile");
+      showPopup({ type: "error", title: "Update Failed", message: error.response?.data?.message || "Could not update profile" });
     } finally {
       setSaving(false);
     }
@@ -99,21 +148,6 @@ const WorkerProfile = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {popup && (
-        <div className="fixed top-5 right-5 z-120 animate-in slide-in-from-top-2 fade-in duration-300">
-          <div
-            className={`min-w-65 max-w-sm rounded-xl border px-4 py-3 shadow-xl backdrop-blur-sm text-sm font-medium flex items-center gap-2 ${
-              popup.type === "success"
-                ? "bg-green-50 border-green-200 text-green-800"
-                : "bg-red-50 border-red-200 text-red-800"
-            }`}
-          >
-            {popup.type === "success" ? <CircleCheck size={16} /> : <CircleX size={16} />}
-            <span>{popup.message}</span>
-          </div>
-        </div>
-      )}
-
       {/* ── Top Bar ── */}
       <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4 sticky top-0 z-50">
         <button
@@ -149,6 +183,25 @@ const WorkerProfile = () => {
                       <p className="text-xs font-medium">No profile image uploaded</p>
                     </div>
                   )}
+                </div>
+
+                <div className="mt-3 flex items-center gap-2">
+                  <label className="inline-flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 text-xs font-semibold hover:bg-gray-50 cursor-pointer">
+                    <Upload size={13} /> Change Image
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={onProfileFileChange}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={onRemoveProfileImage}
+                    className="inline-flex items-center gap-1 border border-red-200 text-red-600 rounded-lg px-3 py-2 text-xs font-semibold hover:bg-red-50"
+                  >
+                    <Trash2 size={13} /> Remove
+                  </button>
                 </div>
               </div>
 

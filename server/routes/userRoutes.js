@@ -1,7 +1,21 @@
 import express from "express";
-import { createWork, getMyWorks, deleteWork, renewTask, submitReview, getTaskReview, submitReport, getMyReviews } from "../controller/userController.js";
+import {
+	createWork,
+	getMyWorks,
+	deleteWork,
+	renewTask,
+	submitReview,
+	getTaskReview,
+	submitReport,
+	getMyReviews,
+	getUserProfile,
+	updateUserProfile,
+} from "../controller/userController.js";
 import { getCategories } from "../controller/workerController.js";
 const router = express.Router();
+
+router.get("/profile", getUserProfile);
+router.patch("/profile", updateUserProfile);
 
 router.post("/create", createWork);
 router.delete("/delete/:id", deleteWork);

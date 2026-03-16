@@ -180,7 +180,7 @@ export const updateWorkerProfile = async (req, res) => {
     if (typeof contactNumber === "string") userUpdates.contactNumber = contactNumber.trim();
     if (typeof address === "string") userUpdates.address = address.trim();
 
-    if (typeof profileImage === "string" && profileImage.trim()) {
+    if (Object.prototype.hasOwnProperty.call(req.body, "profileImage") && typeof profileImage === "string") {
       const oldProfileImage = req.user.profileImage;
       const nextProfileImage = profileImage.trim();
 

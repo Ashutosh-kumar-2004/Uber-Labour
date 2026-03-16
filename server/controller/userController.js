@@ -13,6 +13,82 @@ import {
   getPublicIdFromUrl,
 } from "../constants/constant.js";
 
+export const getUserProfile = async (req, res) => {
+  try {
+    return res.status(200).json({
+      success: true,
+      user: {
+        _id: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        contactNumber: req.user.contactNumber ?? "",
+        address: req.user.address ?? "",
+        profileImage: req.user.profileImage ?? "",
+        walletBalance: req.user.walletBalance ?? 0,
+        isVerified: req.user.isVerified ?? false,
+        createdAt: req.user.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("getUserProfile error:", error);
+    return res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+export const updateUserProfile = async (req, res) => {
+  try {
+    const { name, contactNumber, address, profileImage } = req.body;
+
+    if (contactNumber && !/^\d{10}$/.test(String(contactNumber).trim())) {
+      return res.status(400).json({ message: "Contact number must be a valid 10-digit number" });
+    }
+
+    const updates = {};
+    if (typeof name === "string") updates.name = name.trim();
+    if (typeof contactNumber === "string") updates.contactNumber = contactNumber.trim();
+    if (typeof address === "string") updates.address = address.trim();
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "profileImage") && typeof profileImage === "string") {
+      const oldProfileImage = req.user.profileImage;
+      const nextProfileImage = profileImage.trim();
+
+      if (oldProfileImage && oldProfileImage !== nextProfileImage) {
+        const oldPublicId = getPublicIdFromUrl(oldProfileImage);
+        if (oldPublicId) {
+          await cloudinary.uploader.destroy(oldPublicId);
+        }
+      }
+
+      updates.profileImage = nextProfileImage;
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: updates },
+      { new: true, runValidators: true, context: "query" },
+    ).select("-password");
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        contactNumber: user.contactNumber ?? "",
+        address: user.address ?? "",
+        profileImage: user.profileImage ?? "",
+        walletBalance: user.walletBalance ?? 0,
+        isVerified: user.isVerified ?? false,
+        createdAt: user.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("updateUserProfile error:", error);
+    return res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
 // Create a new task
 export const createWork = async (req, res) => {
   try {
