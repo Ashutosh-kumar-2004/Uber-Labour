@@ -2,8 +2,30 @@ import React, { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { FiMail, FiLock } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
+import useGoogleAuth from "../../hooks/auth/useGoogleAuth";
 import useLogin from "../../hooks/auth/useLogin";
 import ImageSection from "./ImageSection";
+
+const navigateByUserType = (navigate, response) => {
+  const userType = response.user.userType;
+
+  if (userType === "admin") {
+    navigate("/admin");
+    return;
+  }
+
+  if (userType === "worker" && response.user.isVerified === false) {
+    navigate("/worker");
+    return;
+  }
+
+  if (userType === "worker" && response.user.isVerified === true) {
+    navigate("/worker/dashboard");
+    return;
+  }
+
+  navigate("/user");
+};
 
 export default function LoginPage() {
   const [form, setForm] = useState({
@@ -13,6 +35,11 @@ export default function LoginPage() {
 
   const [localError, setLocalError] = useState("");
   const { loginUser, loading, error: loginError } = useLogin();
+  const {
+    authenticateWithGoogle,
+    loading: googleLoading,
+    error: googleError,
+  } = useGoogleAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -30,24 +57,25 @@ export default function LoginPage() {
 
     try {
       const response = await loginUser(form);
-      const userType = response.user.userType;
-      console.log(response);
-      if (userType === "admin") {
-        navigate("/admin");
-      } else if (userType === "worker" && response.user.isVerified === false) {
-        navigate("/worker");
-      } 
-      else if (userType === "worker" && response.user.isVerified === true) {
-        navigate("/worker/dashboard");
-      }
-      else {
-        navigate("/user");
-      }
+      navigateByUserType(navigate, response);
     } catch (err) {
       // Error is handled by the hook and exposed via loginError
       console.error("Login failed", err);
     }
   };
+
+  const handleGoogleLogin = async () => {
+    setLocalError("");
+
+    try {
+      const response = await authenticateWithGoogle();
+      navigateByUserType(navigate, response);
+    } catch (err) {
+      console.error("Google login failed", err);
+    }
+  };
+
+  const isSubmitting = loading || googleLoading;
 
   return (
     <div className="min-h-screen flex">
@@ -98,16 +126,18 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {(localError || loginError) && (
-              <p className="text-red-500 text-sm">{localError || loginError}</p>
+            {(localError || loginError || googleError) && (
+              <p className="text-red-500 text-sm">
+                {localError || loginError || googleError}
+              </p>
             )}
 
             {/* Login Button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={isSubmitting}
               className={`w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800 transition ${
-                loading ? "opacity-70 cursor-not-allowed" : ""
+                isSubmitting ? "opacity-70 cursor-not-allowed" : ""
               }`}
             >
               {loading ? "Logging in..." : "Login"}
@@ -115,18 +145,22 @@ export default function LoginPage() {
 
             {/* Divider */}
             <div className="flex items-center gap-3">
-              <hr className="flex-grow border-gray-300" />
+              <hr className="grow border-gray-300" />
               <span className="text-gray-400 text-sm">OR</span>
-              <hr className="flex-grow border-gray-300" />
+              <hr className="grow border-gray-300" />
             </div>
 
             {/* Google Login */}
             <button
               type="button"
-              className="w-full flex items-center justify-center gap-3 border py-3 rounded-lg hover:bg-gray-100 transition"
+              onClick={handleGoogleLogin}
+              disabled={isSubmitting}
+              className={`w-full flex items-center justify-center gap-3 border py-3 rounded-lg hover:bg-gray-100 transition ${
+                isSubmitting ? "opacity-70 cursor-not-allowed" : ""
+              }`}
             >
               <FcGoogle size={22} />
-              Continue with Google
+              {googleLoading ? "Connecting to Google..." : "Continue with Google"}
             </button>
 
             {/* Signup Link */}

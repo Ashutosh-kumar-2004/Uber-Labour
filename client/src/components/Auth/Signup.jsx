@@ -1,8 +1,18 @@
 import React, { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { useNavigate } from "react-router-dom";
+import useGoogleAuth from "../../hooks/auth/useGoogleAuth";
 import useSignup from "../../hooks/auth/useSignup";
 import ImageSection from "./ImageSection";
+
+const navigateByUserType = (navigate, response) => {
+  if (response.user.userType === "worker") {
+    navigate(response.user.isVerified ? "/worker/dashboard" : "/worker");
+    return;
+  }
+
+  navigate("/user");
+};
 
 export default function SignupPage() {
   const [form, setForm] = useState({
@@ -15,6 +25,11 @@ export default function SignupPage() {
 
   const [errors, setErrors] = useState({});
   const { signupUser, loading, error: signupError } = useSignup();
+  const {
+    authenticateWithGoogle,
+    loading: googleLoading,
+    error: googleError,
+  } = useGoogleAuth();
   const navigate = useNavigate();
 
   const validate = () => {
@@ -66,6 +81,17 @@ export default function SignupPage() {
     }
   };
 
+  const handleGoogleSignup = async () => {
+    try {
+      const response = await authenticateWithGoogle({ userType: form.userType });
+      navigateByUserType(navigate, response);
+    } catch (err) {
+      console.error("Google signup failed", err);
+    }
+  };
+
+  const isSubmitting = loading || googleLoading;
+
   return (
     <div className="min-h-screen flex">
       {/* Left Image Section */}
@@ -77,9 +103,9 @@ export default function SignupPage() {
             Create Account
           </h2>
 
-          {signupError && (
+          {(signupError || googleError) && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
-              <span className="block sm:inline">{signupError}</span>
+              <span className="block sm:inline">{signupError || googleError}</span>
             </div>
           )}
 
@@ -172,9 +198,9 @@ export default function SignupPage() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={isSubmitting}
               className={`w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800 transition ${
-                loading ? "opacity-70 cursor-not-allowed" : ""
+                isSubmitting ? "opacity-70 cursor-not-allowed" : ""
               }`}
             >
               {loading ? "Signing up..." : "Sign Up"}
@@ -182,18 +208,22 @@ export default function SignupPage() {
 
             {/* Divider */}
             <div className="flex items-center gap-3">
-              <hr className="flex-grow border-gray-300" />
+              <hr className="grow border-gray-300" />
               <span className="text-gray-400 text-sm">OR</span>
-              <hr className="flex-grow border-gray-300" />
+              <hr className="grow border-gray-300" />
             </div>
 
             {/* Google */}
             <button
               type="button"
-              className="w-full flex items-center justify-center gap-3 border py-3 rounded-lg hover:bg-gray-100 transition"
+              onClick={handleGoogleSignup}
+              disabled={isSubmitting}
+              className={`w-full flex items-center justify-center gap-3 border py-3 rounded-lg hover:bg-gray-100 transition ${
+                isSubmitting ? "opacity-70 cursor-not-allowed" : ""
+              }`}
             >
               <FcGoogle size={22} />
-              Sign up with Google
+              {googleLoading ? "Connecting to Google..." : "Sign up with Google"}
             </button>
 
             {/* Already have account */}

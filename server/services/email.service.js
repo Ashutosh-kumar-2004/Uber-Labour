@@ -100,6 +100,74 @@ export async function sendOTPEmail({ toEmail, userName, otp, taskTitle, workerNa
   });
 }
 
+export async function sendPasswordResetOTPEmail({
+  toEmail,
+  userName,
+  otp,
+  expiresInMinutes = 15,
+}) {
+  const from = process.env.EMAIL_FROM || `"Workify Pro" <${process.env.EMAIL_USER}>`;
+
+  const html = `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Password Reset OTP</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Arial,sans-serif">
+    <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 0">
+      <tr><td align="center">
+        <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.08)">
+          <tr>
+            <td style="background:#000;padding:28px 40px;text-align:center">
+              <span style="color:#fff;font-size:22px;font-weight:900;letter-spacing:-1px;text-transform:uppercase">
+                Workify Pro
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px 40px 32px">
+              <p style="color:#374151;font-size:15px;margin:0 0 16px">Hi <strong>${userName || "there"}</strong>,</p>
+              <p style="color:#374151;font-size:15px;margin:0 0 24px;line-height:1.6">
+                Use the following one-time password to reset your account password.
+              </p>
+
+              <div style="background:#000;border-radius:14px;padding:24px;text-align:center;margin-bottom:28px">
+                <span style="color:#fff;font-size:42px;font-weight:900;letter-spacing:10px;font-family:monospace">
+                  ${otp}
+                </span>
+              </div>
+
+              <p style="color:#6b7280;font-size:13px;margin:0 0 8px">
+                ⏱️ This code expires in <strong>${expiresInMinutes} minutes</strong>.
+              </p>
+              <p style="color:#6b7280;font-size:13px;margin:0">
+                If you did not request a password reset, you can ignore this email.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 40px;text-align:center">
+              <p style="color:#9ca3af;font-size:11px;margin:0">© 2026 WORKIFY PRO</p>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+  </html>`;
+
+  await transporter.sendMail({
+    from,
+    to: toEmail,
+    subject: `🔐 Password reset OTP: ${otp}`,
+    html,
+    text: `Your password reset OTP is ${otp}. This code expires in ${expiresInMinutes} minutes.`,
+  });
+}
+
 /**
  * Send worker-approved email.
  */
