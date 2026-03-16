@@ -148,6 +148,15 @@ export const getWorkerProfile = async (req, res) => {
 
     res.status(200).json({
       success: true,
+      user: {
+        _id: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        contactNumber: req.user.contactNumber ?? "",
+        address: req.user.address ?? "",
+        profileImage: req.user.profileImage ?? "",
+        createdAt: req.user.createdAt,
+      },
       worker,
       activeTask,
       userBanExpiresAt: req.user.banExpiresAt ?? null,
@@ -155,6 +164,61 @@ export const getWorkerProfile = async (req, res) => {
   } catch (error) {
     console.error("Error fetching worker profile:", error);
     res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+export const updateWorkerProfile = async (req, res) => {
+  try {
+    const { name, contactNumber, address, profileImage } = req.body;
+
+    if (contactNumber && !/^\d{10}$/.test(String(contactNumber).trim())) {
+      return res.status(400).json({ message: "Contact number must be a valid 10-digit number" });
+    }
+
+    const userUpdates = {};
+    if (typeof name === "string") userUpdates.name = name.trim();
+    if (typeof contactNumber === "string") userUpdates.contactNumber = contactNumber.trim();
+    if (typeof address === "string") userUpdates.address = address.trim();
+
+    if (typeof profileImage === "string" && profileImage.trim()) {
+      const oldProfileImage = req.user.profileImage;
+      const nextProfileImage = profileImage.trim();
+
+      if (oldProfileImage && oldProfileImage !== nextProfileImage) {
+        const oldPublicId = getPublicIdFromUrl(oldProfileImage);
+        if (oldPublicId) {
+          await cloudinary.uploader.destroy(oldPublicId);
+        }
+      }
+
+      userUpdates.profileImage = nextProfileImage;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: userUpdates },
+      { new: true, runValidators: true, context: "query" },
+    ).select("-password");
+
+    const worker = await Worker.findOne({ userId: req.user._id });
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user: {
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        contactNumber: updatedUser.contactNumber ?? "",
+        address: updatedUser.address ?? "",
+        profileImage: updatedUser.profileImage ?? "",
+        createdAt: updatedUser.createdAt,
+      },
+      worker,
+    });
+  } catch (error) {
+    console.error("Error updating worker profile:", error);
+    return res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 

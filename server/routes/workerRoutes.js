@@ -6,6 +6,7 @@ import {
   completeTask,
   setWorkerAvailability,
   getWorkerProfile,
+  updateWorkerProfile,
   getAvailableTasks,
   updateWorkerLocation,
   markArrived,
@@ -23,6 +24,7 @@ const router = express.Router();
 router.use(protect);
 
 router.get("/profile", getWorkerProfile);
+router.patch("/profile", updateWorkerProfile);
 router.post("/verify-worker", verifyWorker);
 router.patch("/availability", setWorkerAvailability);
 router.get("/tasks/available", getAvailableTasks);
