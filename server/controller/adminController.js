@@ -544,7 +544,7 @@ export const getNearbyWorkers = async (req, res) => {
     const workers = await Worker.find({
       status: "verified",
       banExpiresAt: { $not: { $gt: new Date() } },
-      "currentLocation.coordinates": {
+      currentLocation: {
         $nearSphere: {
           $geometry: { type: "Point", coordinates: [lng, lat] },
           $maxDistance: radiusKm * 1000,
