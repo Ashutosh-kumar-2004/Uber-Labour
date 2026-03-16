@@ -59,6 +59,22 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    passwordResetOtp: {
+      type: String,
+      select: false,
+      default: null,
+    },
+    passwordResetOtpExpiresAt: {
+      type: Date,
+      select: false,
+      default: null,
+    },
+    passwordResetOtpSentAt: {
+      type: Date,
+      select: false,
+      default: null,
+    },
+
     /* ── Penalty / Ban system ────────────────────────── */
     walletBalance: {
       type: Number,

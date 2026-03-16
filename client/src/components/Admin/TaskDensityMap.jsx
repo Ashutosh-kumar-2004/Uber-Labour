@@ -187,7 +187,7 @@ export default function TaskDensityMap() {
         <div>
           <h1 className="text-xl font-bold text-slate-800">Task Density Map</h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Cluster view of all task locations — zoom in to see individual tasks
+            Cluster view of all task locations - zoom in to see individual tasks
           </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -234,7 +234,7 @@ export default function TaskDensityMap() {
                 : "bg-white text-slate-700 border-slate-300 hover:bg-purple-50"
             }`}
           >
-            {pickingCenter ? "Click map to set center…" : "Set Filter Center"}
+            {pickingCenter ? "Click map to set center..." : "Set Filter Center"}
           </button>
           <button
             onClick={handleLocateMe}
@@ -280,7 +280,7 @@ export default function TaskDensityMap() {
       <div className="flex-1 relative min-h-0">
         {loading && (
           <div className="absolute inset-0 z-1000 bg-white/70 flex items-center justify-center">
-            <span className="text-slate-600 text-sm font-medium animate-pulse">Loading tasks…</span>
+            <span className="text-slate-600 text-sm font-medium animate-pulse">Loading tasks...</span>
           </div>
         )}
         {error && (
@@ -327,7 +327,7 @@ export default function TaskDensityMap() {
             </Marker>
           )}
 
-          {/* Clustered view — zoom < 14 */}
+          {/* Clustered view - zoom < 14 */}
           {!dissolve &&
             clusters.map((cl, i) => {
               const r = Math.min(8 + cl.count * 1.8, 55);
@@ -360,7 +360,7 @@ export default function TaskDensityMap() {
                         </div>
                       ))}
                       {cl.count > 10 && (
-                        <p className="text-xs text-slate-400 mt-1">…and {cl.count - 10} more. Zoom in to see all.</p>
+                        <p className="text-xs text-slate-400 mt-1">...and {cl.count - 10} more. Zoom in to see all.</p>
                       )}
                     </div>
                   </Popup>
@@ -368,7 +368,7 @@ export default function TaskDensityMap() {
               );
             })}
 
-          {/* Dissolved individual pins — zoom >= 14 */}
+          {/* Dissolved individual pins - zoom >= 14 */}
           {dissolve &&
             filteredTasks.map((t) => (
               <CircleMarker
@@ -396,7 +396,7 @@ export default function TaskDensityMap() {
                       </span>
                     </div>
                     {t.price != null && (
-                      <p className="text-xs text-slate-600 mt-0.5">₹{t.price}</p>
+                      <p className="text-xs text-slate-600 mt-0.5">INR {t.price}</p>
                     )}
                     <p className="text-xs text-slate-400 mt-0.5">
                       {t.createdAt ? new Date(t.createdAt).toLocaleDateString() : ""}

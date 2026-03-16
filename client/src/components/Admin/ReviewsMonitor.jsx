@@ -14,7 +14,7 @@ const ReviewsMonitor = () => {
 
   useEffect(() => { fetchReviews({ page, limit: 20 }); }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading reviews…</div>;
+  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading reviews...</div>;
   if (error)   return <div className="text-center py-16 text-red-500 text-sm">{error}</div>;
 
   return (
@@ -44,15 +44,15 @@ const ReviewsMonitor = () => {
               <tbody>
                 {reviews.map((r) => (
                   <tr key={r._id} className={TR}>
-                    <td className={TD}>{r.userId?.name ?? "—"}</td>
-                    <td className={TD}>{r.workerId?.userId?.name ?? "—"}</td>
-                    <td className={TD}>{r.taskId?.title ?? "—"}</td>
+                    <td className={TD}>{r.userId?.name ?? "-"}</td>
+                    <td className={TD}>{r.workerId?.userId?.name ?? "-"}</td>
+                    <td className={TD}>{r.taskId?.title ?? "-"}</td>
                     <td className={TD}>
                       <Stars n={r.rating} />
                       <span className="ml-1 text-xs text-gray-500">{r.rating}/5</span>
                     </td>
                     <td className={TD + " max-w-[200px] truncate"}>
-                      {r.comment || <span className="text-gray-300">—</span>}
+                      {r.comment || <span className="text-gray-300">-</span>}
                     </td>
                     <td className={TD}>{new Date(r.createdAt).toLocaleDateString()}</td>
                   </tr>

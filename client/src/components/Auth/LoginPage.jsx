@@ -2,8 +2,31 @@ import React, { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { FiMail, FiLock } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
+import { usePopup } from "../../context/PopupContext.jsx";
+import useGoogleAuth from "../../hooks/auth/useGoogleAuth";
 import useLogin from "../../hooks/auth/useLogin";
 import ImageSection from "./ImageSection";
+
+const navigateByUserType = (navigate, response) => {
+  const userType = response.user.userType;
+
+  if (userType === "admin") {
+    navigate("/admin");
+    return;
+  }
+
+  if (userType === "worker" && response.user.isVerified === false) {
+    navigate("/worker");
+    return;
+  }
+
+  if (userType === "worker" && response.user.isVerified === true) {
+    navigate("/worker/dashboard");
+    return;
+  }
+
+  navigate("/user");
+};
 
 export default function LoginPage() {
   const [form, setForm] = useState({
@@ -11,43 +34,70 @@ export default function LoginPage() {
     password: "",
   });
 
-  const [localError, setLocalError] = useState("");
-  const { loginUser, loading, error: loginError } = useLogin();
+  const { loginUser, loading } = useLogin();
+  const {
+    authenticateWithGoogle,
+    loading: googleLoading,
+    error: googleError,
+  } = useGoogleAuth();
+  const { showPopup } = usePopup();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
-    setLocalError(""); // Clear local error on input change
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!form.email || !form.password) {
-      setLocalError("Please fill in all fields");
+      showPopup({
+        type: "warning",
+        title: "Missing Fields",
+        message: "Please fill in email and password",
+      });
       return;
     }
 
     try {
       const response = await loginUser(form);
-      const userType = response.user.userType;
-      console.log(response);
-      if (userType === "admin") {
-        navigate("/admin");
-      } else if (userType === "worker" && response.user.isVerified === false) {
-        navigate("/worker");
-      } 
-      else if (userType === "worker" && response.user.isVerified === true) {
-        navigate("/worker/dashboard");
-      }
-      else {
-        navigate("/user");
-      }
+      showPopup({
+        type: "success",
+        title: "Welcome Back",
+        message: "You are logged in successfully",
+      });
+      navigateByUserType(navigate, response);
     } catch (err) {
       // Error is handled by the hook and exposed via loginError
+      showPopup({
+        type: "error",
+        title: "Login Failed",
+        message: err.response?.data?.message || "Login failed",
+      });
       console.error("Login failed", err);
     }
   };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const response = await authenticateWithGoogle();
+      showPopup({
+        type: "success",
+        title: "Google Login",
+        message: "Signed in with Google successfully",
+      });
+      navigateByUserType(navigate, response);
+    } catch (err) {
+      showPopup({
+        type: "error",
+        title: "Google Login Failed",
+        message: err.response?.data?.message || googleError || "Google login failed",
+      });
+      console.error("Google login failed", err);
+    }
+  };
+
+  const isSubmitting = loading || googleLoading;
 
   return (
     <div className="min-h-screen flex">
@@ -98,16 +148,12 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {(localError || loginError) && (
-              <p className="text-red-500 text-sm">{localError || loginError}</p>
-            )}
-
             {/* Login Button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={isSubmitting}
               className={`w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800 transition ${
-                loading ? "opacity-70 cursor-not-allowed" : ""
+                isSubmitting ? "opacity-70 cursor-not-allowed" : ""
               }`}
             >
               {loading ? "Logging in..." : "Login"}
@@ -115,18 +161,22 @@ export default function LoginPage() {
 
             {/* Divider */}
             <div className="flex items-center gap-3">
-              <hr className="flex-grow border-gray-300" />
+              <hr className="grow border-gray-300" />
               <span className="text-gray-400 text-sm">OR</span>
-              <hr className="flex-grow border-gray-300" />
+              <hr className="grow border-gray-300" />
             </div>
 
             {/* Google Login */}
             <button
               type="button"
-              className="w-full flex items-center justify-center gap-3 border py-3 rounded-lg hover:bg-gray-100 transition"
+              onClick={handleGoogleLogin}
+              disabled={isSubmitting}
+              className={`w-full flex items-center justify-center gap-3 border py-3 rounded-lg hover:bg-gray-100 transition ${
+                isSubmitting ? "opacity-70 cursor-not-allowed" : ""
+              }`}
             >
               <FcGoogle size={22} />
-              Continue with Google
+              {googleLoading ? "Connecting to Google..." : "Continue with Google"}
             </button>
 
             {/* Signup Link */}

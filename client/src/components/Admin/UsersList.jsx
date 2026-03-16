@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 import useAdminUsers from "../../hooks/admin/useAdminUsers";
-import { badgeCls, btnCls, alertCls, TH, TD, TR, OVERLAY, MODAL, inputCls, labelCls, Pagination } from "./adminUtils";
+import { badgeCls, btnCls, TH, TD, TR, OVERLAY, MODAL, inputCls, labelCls, Pagination } from "./adminUtils";
+import { usePopup } from "../../context/PopupContext";
 
 const isBanned = (u) => u.banExpiresAt && new Date(u.banExpiresAt) > new Date();
 const statusColor = (s) => ({ completed: "green", assigned: "blue", cancelled: "red", pending: "yellow" }[s] ?? "gray");
@@ -16,7 +17,7 @@ const UsersList = () => {
   const [banReason, setBanReason] = useState("");
   const [banDuration, setBanDuration] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
-  const [alert, setAlert] = useState(null);
+  const { showPopup } = usePopup();
 
   useEffect(() => { fetchUsers({ page, limit: 20 }); }, [page]);
 
@@ -24,11 +25,6 @@ const UsersList = () => {
     e.preventDefault();
     setPage(1);
     fetchUsers({ page: 1, limit: 20, search });
-  };
-
-  const showAlert = (msg, type = "success") => {
-    setAlert({ msg, type });
-    setTimeout(() => setAlert(null), 3000);
   };
 
   const openProfile = async (user) => {
@@ -46,9 +42,9 @@ const UsersList = () => {
     try {
       await banUser(banModal._id, { reason: banReason, durationHours: banDuration ? parseInt(banDuration) : undefined });
       setBanModal(null);
-      showAlert("User banned.");
+      showPopup({ type: "success", title: "User Banned", message: "User has been banned." });
     } catch {
-      showAlert("Failed to ban user", "error");
+      showPopup({ type: "error", title: "Ban Failed", message: "Failed to ban user" });
     } finally {
       setActionLoading(false);
     }
@@ -58,21 +54,20 @@ const UsersList = () => {
     setActionLoading(true);
     try {
       await unbanUser(id);
-      showAlert("User unbanned.");
+      showPopup({ type: "success", title: "User Unbanned", message: "User has been unbanned." });
     } catch {
-      showAlert("Failed to unban user", "error");
+      showPopup({ type: "error", title: "Unban Failed", message: "Failed to unban user" });
     } finally {
       setActionLoading(false);
     }
   };
 
-  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading usersâ€¦</div>;
+  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading users...</div>;
   if (error)   return <div className="text-center py-16 text-red-500 text-sm">{error}</div>;
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">All Users</h1>
-      {alert && <div className={alertCls(alert.type)}>{alert.msg}</div>}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-gray-200">
@@ -80,7 +75,7 @@ const UsersList = () => {
           <form onSubmit={handleSearch} className="flex gap-2">
             <input
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-52"
-              placeholder="Search name / emailâ€¦"
+              placeholder="Search name / email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -108,7 +103,7 @@ const UsersList = () => {
                   <tr key={u._id} className={TR}>
                     <td className={TD}>{u.name}</td>
                     <td className={TD}>{u.email}</td>
-                    <td className={TD}>â‚¹{u.walletBalance ?? 0}</td>
+                    <td className={TD}>INR {u.walletBalance ?? 0}</td>
                     <td className={TD}>{new Date(u.createdAt).toLocaleDateString()}</td>
                     <td className={TD}>
                       <span className={badgeCls(isBanned(u) ? "red" : "green")}>{isBanned(u) ? "Banned" : "Active"}</span>
@@ -144,7 +139,7 @@ const UsersList = () => {
               <>
                 <div className="grid grid-cols-2 gap-3 mb-5 text-sm">
                   <div><span className="font-semibold text-gray-600">Email:</span> {profileData.user.email}</div>
-                  <div><span className="font-semibold text-gray-600">Wallet:</span> â‚¹{profileData.user.walletBalance ?? 0}</div>
+                  <div><span className="font-semibold text-gray-600">Wallet:</span> INR {profileData.user.walletBalance ?? 0}</div>
                   <div><span className="font-semibold text-gray-600">Joined:</span> {new Date(profileData.user.createdAt).toLocaleDateString()}</div>
                 </div>
                 <h4 className="text-sm font-semibold text-gray-700 mb-2">Recent Tasks ({profileData.tasks.length})</h4>
@@ -169,10 +164,10 @@ const UsersList = () => {
       {banModal && (
         <div className={OVERLAY} onClick={() => setBanModal(null)}>
           <div className={MODAL} onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-gray-900 mb-4">Ban User â€” {banModal.name}</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Ban User - {banModal.name}</h2>
             <div className="mb-4">
               <label className={labelCls}>Reason (optional)</label>
-              <textarea className={inputCls} rows={2} value={banReason} onChange={(e) => setBanReason(e.target.value)} placeholder="Enter reasonâ€¦" />
+              <textarea className={inputCls} rows={2} value={banReason} onChange={(e) => setBanReason(e.target.value)} placeholder="Enter reason..." />
             </div>
             <div className="mb-4">
               <label className={labelCls}>Duration (hours, leave empty for permanent)</label>

@@ -10,6 +10,7 @@ import useWorkerRegistration from "../../hooks/user/useWorkerRegistration";
 import { useNavigate, Link } from "react-router-dom";
 import axiosInstance from "../../api/axios";
 import useCategories from "../../hooks/useCategories";
+import { usePopup } from "../../context/PopupContext";
 
 const Registration = () => {
   const [step, setStep] = useState(1); // 1: Info, 2: Upload, 3: Pending
@@ -25,6 +26,7 @@ const Registration = () => {
   const navigate = useNavigate();
   const { registerWorker, loading, error } = useWorkerRegistration();
   const { categories: skillCategories, loading: categoriesLoading } = useCategories();
+  const { showPopup } = usePopup();
 
   // null = loading, "none" = no record, "pending" | "rejected" | "verified"
   const [workerStatus, setWorkerStatus] = useState(null);
@@ -70,7 +72,7 @@ const Registration = () => {
 
   const handleSubmit = async () => {
     if (!file) {
-      alert("Please upload your ID card.");
+      showPopup({ type: "warning", title: "ID Required", message: "Please upload your ID card." });
       return;
     }
     const payload = { ...formData, file };
@@ -79,7 +81,7 @@ const Registration = () => {
       setStep(3);
     } catch (err) {
       console.error(err);
-      alert(err.message || "Registration failed");
+      showPopup({ type: "error", title: "Registration Failed", message: err.message || "Registration failed" });
     }
   };
 
@@ -292,7 +294,11 @@ const Registration = () => {
                     !formData.address ||
                     !formData.contactNumber
                   ) {
-                    alert("Please fill all mandatory fields");
+                    showPopup({
+                      type: "warning",
+                      title: "Missing Details",
+                      message: "Please fill all mandatory fields",
+                    });
                     return;
                   }
                   setStep(2);

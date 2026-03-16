@@ -44,7 +44,7 @@ const centerIcon = L.divIcon({
   iconAnchor: [9, 9],
 });
 
-// ─── Center picker — click map to set center ─────────────────────────────────
+// ─── Center picker - click map to set center ─────────────────────────────────
 function CenterPicker({ onCenterSet }) {
   useMapEvents({
     click(e) {
@@ -73,7 +73,7 @@ function fmtDate(d) {
 export default function WorkerLocationMap() {
   const { workers, loading, error, fetchWorkerLocations } = useAdminWorkerLocations();
 
-  const [center, setCenter] = useState(null);       // { lat, lng } — filter center
+  const [center, setCenter] = useState(null);       // { lat, lng } - filter center
   const [radiusKm, setRadiusKm] = useState(10);     // km
   const [filterActive, setFilterActive] = useState(false);
   const [flyTarget, setFlyTarget] = useState(null);
@@ -164,7 +164,7 @@ export default function WorkerLocationMap() {
                 : "bg-white text-slate-700 border-slate-300 hover:bg-blue-50"
             }`}
           >
-            {pickingCenter ? "Click map to set center…" : "Set Filter Center"}
+            {pickingCenter ? "Click map to set center..." : "Set Filter Center"}
           </button>
           <button
             onClick={handleLocateMe}
@@ -210,7 +210,7 @@ export default function WorkerLocationMap() {
       <div className="flex-1 relative min-h-0">
         {loading && (
           <div className="absolute inset-0 z-1000 bg-white/70 flex items-center justify-center">
-            <span className="text-slate-600 text-sm font-medium animate-pulse">Loading workers…</span>
+            <span className="text-slate-600 text-sm font-medium animate-pulse">Loading workers...</span>
           </div>
         )}
         {error && (

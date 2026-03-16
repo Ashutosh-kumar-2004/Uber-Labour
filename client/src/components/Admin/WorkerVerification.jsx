@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import useAdminWorkers from "../../hooks/admin/useAdminWorkers";
-import { badgeCls, btnCls, alertCls, TH, TD, TR, OVERLAY, MODAL, inputCls, labelCls, Pagination } from "./adminUtils";
+import { btnCls, TH, TD, TR, OVERLAY, MODAL, inputCls, labelCls, Pagination } from "./adminUtils";
+import { usePopup } from "../../context/PopupContext";
 
 const WorkerVerification = () => {
   const { workers, pagination, loading, error, fetchPendingWorkers, approveWorker, rejectWorker } =
@@ -10,24 +11,19 @@ const WorkerVerification = () => {
   const [rejectModal, setRejectModal] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
-  const [alert, setAlert] = useState(null);
+  const { showPopup } = usePopup();
 
   useEffect(() => {
     fetchPendingWorkers({ page, limit: 20 });
   }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const showAlert = (msg, type = "success") => {
-    setAlert({ msg, type });
-    setTimeout(() => setAlert(null), 3000);
-  };
-
   const handleApprove = async (id) => {
     setActionLoading(true);
     try {
       await approveWorker(id);
-      showAlert("Worker approved successfully!");
+      showPopup({ type: "success", title: "Worker Approved", message: "Worker approved successfully." });
     } catch {
-      showAlert("Failed to approve worker", "error");
+      showPopup({ type: "error", title: "Approval Failed", message: "Failed to approve worker" });
     } finally {
       setActionLoading(false);
     }
@@ -40,21 +36,20 @@ const WorkerVerification = () => {
       await rejectWorker(rejectModal._id, rejectReason);
       setRejectModal(null);
       setRejectReason("");
-      showAlert("Worker rejected.");
+      showPopup({ type: "success", title: "Worker Rejected", message: "Worker rejected successfully." });
     } catch {
-      showAlert("Failed to reject worker", "error");
+      showPopup({ type: "error", title: "Rejection Failed", message: "Failed to reject worker" });
     } finally {
       setActionLoading(false);
     }
   };
 
-  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading pending workers…</div>;
+  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading pending workers...</div>;
   if (error)   return <div className="text-center py-16 text-red-500 text-sm">{error}</div>;
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Worker Verification</h1>
-      {alert && <div className={alertCls(alert.type)}>{alert.msg}</div>}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
@@ -79,9 +74,9 @@ const WorkerVerification = () => {
               <tbody>
                 {workers.map((w) => (
                   <tr key={w._id} className={TR}>
-                    <td className={TD}>{w.userId?.name ?? "—"}</td>
-                    <td className={TD}>{w.userId?.email ?? "—"}</td>
-                    <td className={TD}>{w.userId?.contactNumber ?? "—"}</td>
+                    <td className={TD}>{w.userId?.name ?? "-"}</td>
+                    <td className={TD}>{w.userId?.email ?? "-"}</td>
+                    <td className={TD}>{w.userId?.contactNumber ?? "-"}</td>
                     <td className={TD}>{w.adharCardNumber}</td>
                     <td className={TD}>{new Date(w.createdAt).toLocaleDateString()}</td>
                     <td className={TD}>
@@ -105,7 +100,7 @@ const WorkerVerification = () => {
       {viewWorker && (
         <div className={OVERLAY} onClick={() => setViewWorker(null)}>
           <div className={MODAL} onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-gray-900 mb-2">ID Card — {viewWorker.userId?.name}</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-2">ID Card - {viewWorker.userId?.name}</h2>
             <p className="text-sm text-gray-500 mb-4">Aadhar: <strong>{viewWorker.adharCardNumber}</strong></p>
             {viewWorker.idCardImage ? (
               <img src={viewWorker.idCardImage} alt="ID Card" className="w-full rounded-lg border border-gray-200 mb-4" />
