@@ -1,32 +1,40 @@
 import { useSelector } from "react-redux";
 import { useState } from "react";
 import useAdminPlatformFee from "../../hooks/admin/useAdminPlatformFee";
-import { inputCls, labelCls, btnCls, alertCls } from "./adminUtils";
+import { inputCls, labelCls, btnCls } from "./adminUtils";
+import { usePopup } from "../../context/PopupContext";
 
 const PlatformFeeSettings = () => {
   const { loading, saving, error, saveFee } = useAdminPlatformFee();
   const feePercent = useSelector((s) => s.admin.feePercent);
   const [inputVal, setInputVal] = useState("");
-  const [alert, setAlert] = useState(null);
+  const { showPopup } = usePopup();
 
   const handleSave = async (e) => {
     e.preventDefault();
     const val = parseFloat(inputVal);
     if (isNaN(val) || val < 0 || val > 100) {
-      setAlert({ msg: "Please enter a value between 0 and 100", type: "error" });
+      showPopup({
+        type: "error",
+        title: "Invalid Value",
+        message: "Please enter a value between 0 and 100",
+      });
       return;
     }
     try {
       await saveFee(val);
       setInputVal("");
-      setAlert({ msg: `Platform fee updated to ${val}%`, type: "success" });
-      setTimeout(() => setAlert(null), 3000);
+      showPopup({
+        type: "success",
+        title: "Fee Updated",
+        message: `Platform fee updated to ${val}%`,
+      });
     } catch (err) {
-      setAlert({ msg: err.message, type: "error" });
+      showPopup({ type: "error", title: "Update Failed", message: err.message });
     }
   };
 
-  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading fee settings…</div>;
+  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading fee settings...</div>;
   if (error)   return <div className="text-center py-16 text-red-500 text-sm">{error}</div>;
 
   const workerPct = feePercent != null ? 100 - feePercent : null;
@@ -34,7 +42,6 @@ const PlatformFeeSettings = () => {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Finance / Platform Fee</h1>
-      {alert && <div className={alertCls(alert.type)}>{alert.msg}</div>}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 max-w-lg">
         <h2 className="text-base font-bold text-gray-800 mb-5">Platform Fee Configuration</h2>
@@ -65,7 +72,7 @@ const PlatformFeeSettings = () => {
             />
           </div>
           <button type="submit" className={btnCls("primary")} disabled={saving}>
-            {saving ? "Saving…" : "Update Fee"}
+            {saving ? "Saving..." : "Update Fee"}
           </button>
         </form>
       </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import useAdminReports from "../../hooks/admin/useAdminReports";
-import { badgeCls, btnCls, alertCls, TH, TD, TR, Pagination } from "./adminUtils";
+import { badgeCls, btnCls, TH, TD, TR, Pagination } from "./adminUtils";
+import { usePopup } from "../../context/PopupContext";
 
 const statusColor = (s) => ({ pending: "yellow", reviewed: "blue", resolved: "green" }[s] ?? "gray");
 const selectCls = "px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white";
@@ -9,33 +10,31 @@ const ReportsMonitor = () => {
   const { reports, pagination, loading, error, fetchReports, updateStatus } = useAdminReports();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("pending");
-  const [alert, setAlert] = useState(null);
+  const { showPopup } = usePopup();
 
   useEffect(() => {
     fetchReports({ page, limit: 20, status: statusFilter });
   }, [page, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const showAlert = (msg, type = "success") => {
-    setAlert({ msg, type });
-    setTimeout(() => setAlert(null), 3000);
-  };
-
   const handleStatus = async (id, status) => {
     try {
       await updateStatus(id, status);
-      showAlert(`Report marked as ${status}`);
+      showPopup({
+        type: "success",
+        title: "Report Updated",
+        message: `Report marked as ${status}`,
+      });
     } catch {
-      showAlert("Failed to update status", "error");
+      showPopup({ type: "error", title: "Update Failed", message: "Failed to update status" });
     }
   };
 
-  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading reports…</div>;
+  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading reports...</div>;
   if (error)   return <div className="text-center py-16 text-red-500 text-sm">{error}</div>;
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Reports Monitor</h1>
-      {alert && <div className={alertCls(alert.type)}>{alert.msg}</div>}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-gray-200">
@@ -66,9 +65,9 @@ const ReportsMonitor = () => {
               <tbody>
                 {reports.map((r) => (
                   <tr key={r._id} className={TR}>
-                    <td className={TD}>{r.userId?.name ?? "—"}</td>
-                    <td className={TD}>{r.workerId?.userId?.name ?? "—"}</td>
-                    <td className={TD}>{r.taskId?.title ?? "—"}</td>
+                    <td className={TD}>{r.userId?.name ?? "-"}</td>
+                    <td className={TD}>{r.workerId?.userId?.name ?? "-"}</td>
+                    <td className={TD}>{r.taskId?.title ?? "-"}</td>
                     <td className={TD + " max-w-[180px] truncate"}>{r.reason}</td>
                     <td className={TD}><span className={badgeCls(statusColor(r.status))}>{r.status}</span></td>
                     <td className={TD}>

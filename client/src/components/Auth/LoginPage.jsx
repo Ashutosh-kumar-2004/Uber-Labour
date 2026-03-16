@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { FiMail, FiLock } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
+import { usePopup } from "../../context/PopupContext.jsx";
 import useGoogleAuth from "../../hooks/auth/useGoogleAuth";
 import useLogin from "../../hooks/auth/useLogin";
 import ImageSection from "./ImageSection";
@@ -33,44 +34,65 @@ export default function LoginPage() {
     password: "",
   });
 
-  const [localError, setLocalError] = useState("");
-  const { loginUser, loading, error: loginError } = useLogin();
+  const { loginUser, loading } = useLogin();
   const {
     authenticateWithGoogle,
     loading: googleLoading,
     error: googleError,
   } = useGoogleAuth();
+  const { showPopup } = usePopup();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
-    setLocalError(""); // Clear local error on input change
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!form.email || !form.password) {
-      setLocalError("Please fill in all fields");
+      showPopup({
+        type: "warning",
+        title: "Missing Fields",
+        message: "Please fill in email and password",
+      });
       return;
     }
 
     try {
       const response = await loginUser(form);
+      showPopup({
+        type: "success",
+        title: "Welcome Back",
+        message: "You are logged in successfully",
+      });
       navigateByUserType(navigate, response);
     } catch (err) {
       // Error is handled by the hook and exposed via loginError
+      showPopup({
+        type: "error",
+        title: "Login Failed",
+        message: err.response?.data?.message || "Login failed",
+      });
       console.error("Login failed", err);
     }
   };
 
   const handleGoogleLogin = async () => {
-    setLocalError("");
-
     try {
       const response = await authenticateWithGoogle();
+      showPopup({
+        type: "success",
+        title: "Google Login",
+        message: "Signed in with Google successfully",
+      });
       navigateByUserType(navigate, response);
     } catch (err) {
+      showPopup({
+        type: "error",
+        title: "Google Login Failed",
+        message: err.response?.data?.message || googleError || "Google login failed",
+      });
       console.error("Google login failed", err);
     }
   };
@@ -125,12 +147,6 @@ export default function LoginPage() {
                 </a>
               </div>
             </div>
-
-            {(localError || loginError || googleError) && (
-              <p className="text-red-500 text-sm">
-                {localError || loginError || googleError}
-              </p>
-            )}
 
             {/* Login Button */}
             <button

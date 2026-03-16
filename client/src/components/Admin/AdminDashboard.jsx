@@ -13,7 +13,7 @@ const StatCard = ({ label, value, sub, accent }) => (
     style={{ borderTop: `3px solid ${accent}` }}
   >
     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{label}</p>
-    <p className="text-3xl font-black text-gray-900">{value ?? "—"}</p>
+    <p className="text-3xl font-black text-gray-900">{value ?? "-"}</p>
     {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
   </div>
 );
@@ -46,7 +46,7 @@ const AdminDashboard = () => {
   const { loading, error } = useAdminStats();
   const stats = useSelector((s) => s.admin.stats);
 
-  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading dashboard…</div>;
+  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading dashboard...</div>;
   if (error)   return <div className="text-center py-16 text-red-500 text-sm">{error}</div>;
 
   const t = stats?.tasks?.byStatus ?? {};

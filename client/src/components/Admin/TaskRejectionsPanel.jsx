@@ -1,39 +1,34 @@
 import { useEffect, useState } from "react";
 import useAdminRejections from "../../hooks/admin/useAdminRejections";
-import { badgeCls, btnCls, alertCls, TH, TD, TR, Pagination } from "./adminUtils";
+import { badgeCls, btnCls, TH, TD, TR, Pagination } from "./adminUtils";
+import { usePopup } from "../../context/PopupContext";
 
 const TaskRejectionsPanel = () => {
   const { rejections, pagination, loading, error, fetchRejections, liftBan } = useAdminRejections();
   const [page, setPage] = useState(1);
-  const [alert, setAlert] = useState(null);
   const [liftingId, setLiftingId] = useState(null);
+  const { showPopup } = usePopup();
 
   useEffect(() => { fetchRejections({ page, limit: 20 }); }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const showAlert = (msg, type = "success") => {
-    setAlert({ msg, type });
-    setTimeout(() => setAlert(null), 3000);
-  };
 
   const handleLiftBan = async (id) => {
     setLiftingId(id);
     try {
       await liftBan(id);
-      showAlert("Ban lifted successfully!");
+      showPopup({ type: "success", title: "Ban Lifted", message: "Ban lifted successfully." });
     } catch {
-      showAlert("Failed to lift ban", "error");
+      showPopup({ type: "error", title: "Action Failed", message: "Failed to lift ban" });
     } finally {
       setLiftingId(null);
     }
   };
 
-  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading rejections…</div>;
+  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading rejections...</div>;
   if (error)   return <div className="text-center py-16 text-red-500 text-sm">{error}</div>;
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Task Rejections</h1>
-      {alert && <div className={alertCls(alert.type)}>{alert.msg}</div>}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
@@ -59,8 +54,8 @@ const TaskRejectionsPanel = () => {
               <tbody>
                 {rejections.map((r) => (
                   <tr key={r._id} className={TR}>
-                    <td className={TD}>{r.workerId?.userId?.name ?? "—"}</td>
-                    <td className={TD}>{r.taskId?.title ?? "—"}</td>
+                    <td className={TD}>{r.workerId?.userId?.name ?? "-"}</td>
+                    <td className={TD}>{r.taskId?.title ?? "-"}</td>
                     <td className={TD + " max-w-[200px] truncate"}>{r.reason}</td>
                     <td className={TD}>{new Date(r.rejectedAt).toLocaleDateString()}</td>
                     <td className={TD}><span className={badgeCls(r.adminReviewed ? "green" : "yellow")}>{r.adminReviewed ? "Yes" : "No"}</span></td>
@@ -68,7 +63,7 @@ const TaskRejectionsPanel = () => {
                     <td className={TD}>
                       {!r.banLifted && (
                         <button className={btnCls("success", true)} disabled={liftingId === r._id} onClick={() => handleLiftBan(r._id)}>
-                          {liftingId === r._id ? "…" : "Lift Ban"}
+                          {liftingId === r._id ? "..." : "Lift Ban"}
                         </button>
                       )}
                     </td>

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { useNavigate } from "react-router-dom";
+import { usePopup } from "../../context/PopupContext.jsx";
 import useGoogleAuth from "../../hooks/auth/useGoogleAuth";
 import useSignup from "../../hooks/auth/useSignup";
 import ImageSection from "./ImageSection";
@@ -30,6 +31,7 @@ export default function SignupPage() {
     loading: googleLoading,
     error: googleError,
   } = useGoogleAuth();
+  const { showPopup } = usePopup();
   const navigate = useNavigate();
 
   const validate = () => {
@@ -65,11 +67,29 @@ export default function SignupPage() {
     if (validate()) {
       try {
         const { confirmPassword, ...signupData } = form; // Exclude confirmPassword
-        await signupUser(signupData);
+        const response = await signupUser(signupData);
+        showPopup({
+          type: "success",
+          title: "Account Created",
+          message:
+            response?.message ||
+            "Signup successful. Continue to login.",
+        });
         navigate("/login"); // Navigate to login on success
       } catch (err) {
+        showPopup({
+          type: "error",
+          title: "Signup Failed",
+          message: err.response?.data?.message || "Signup failed",
+        });
         console.error("Signup failed", err);
       }
+    } else {
+      showPopup({
+        type: "warning",
+        title: "Please Check Form",
+        message: "Some fields are invalid. Fix them and try again.",
+      });
     }
   };
 
@@ -84,8 +104,18 @@ export default function SignupPage() {
   const handleGoogleSignup = async () => {
     try {
       const response = await authenticateWithGoogle({ userType: form.userType });
+      showPopup({
+        type: "success",
+        title: "Google Signup",
+        message: "Signed up and logged in successfully",
+      });
       navigateByUserType(navigate, response);
     } catch (err) {
+      showPopup({
+        type: "error",
+        title: "Google Signup Failed",
+        message: err.response?.data?.message || googleError || "Google signup failed",
+      });
       console.error("Google signup failed", err);
     }
   };
@@ -102,12 +132,6 @@ export default function SignupPage() {
           <h2 className="text-3xl font-bold mb-6 text-gray-800">
             Create Account
           </h2>
-
-          {(signupError || googleError) && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
-              <span className="block sm:inline">{signupError || googleError}</span>
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Name */}

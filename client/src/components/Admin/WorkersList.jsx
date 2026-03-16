@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 import useAdminWorkers from "../../hooks/admin/useAdminWorkers";
-import { badgeCls, btnCls, alertCls, TH, TD, TR, OVERLAY, MODAL, inputCls, labelCls, Pagination } from "./adminUtils";
+import { badgeCls, btnCls, TH, TD, TR, OVERLAY, MODAL, inputCls, labelCls, Pagination } from "./adminUtils";
+import { usePopup } from "../../context/PopupContext";
 
 const isBanned = (w) => {
   const ban = w.banExpiresAt || w.userId?.banExpiresAt;
@@ -23,7 +24,7 @@ const WorkersList = () => {
   const [banReason, setBanReason] = useState("");
   const [banDuration, setBanDuration] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
-  const [alert, setAlert] = useState(null);
+  const { showPopup } = usePopup();
 
   useEffect(() => {
     fetchWorkers({ page, limit: 20, search, status: statusFilter });
@@ -33,11 +34,6 @@ const WorkersList = () => {
     e.preventDefault();
     setPage(1);
     fetchWorkers({ page: 1, limit: 20, search, status: statusFilter });
-  };
-
-  const showAlert = (msg, type = "success") => {
-    setAlert({ msg, type });
-    setTimeout(() => setAlert(null), 3000);
   };
 
   const openProfile = async (worker) => {
@@ -55,9 +51,9 @@ const WorkersList = () => {
     try {
       await banWorker(banModal._id, { reason: banReason, durationHours: banDuration ? parseInt(banDuration) : undefined });
       setBanModal(null);
-      showAlert("Worker banned.");
+      showPopup({ type: "success", title: "Worker Banned", message: "Worker has been banned." });
     } catch {
-      showAlert("Failed to ban worker", "error");
+      showPopup({ type: "error", title: "Ban Failed", message: "Failed to ban worker" });
     } finally {
       setActionLoading(false);
     }
@@ -67,21 +63,20 @@ const WorkersList = () => {
     setActionLoading(true);
     try {
       await unbanWorker(id);
-      showAlert("Worker unbanned.");
+      showPopup({ type: "success", title: "Worker Unbanned", message: "Worker has been unbanned." });
     } catch {
-      showAlert("Failed to unban worker", "error");
+      showPopup({ type: "error", title: "Unban Failed", message: "Failed to unban worker" });
     } finally {
       setActionLoading(false);
     }
   };
 
-  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading workersâ€¦</div>;
+  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading workers...</div>;
   if (error)   return <div className="text-center py-16 text-red-500 text-sm">{error}</div>;
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">All Workers</h1>
-      {alert && <div className={alertCls(alert.type)}>{alert.msg}</div>}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-gray-200">
@@ -96,7 +91,7 @@ const WorkersList = () => {
             <form onSubmit={handleSearch} className="flex gap-2">
               <input
                 className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-52"
-                placeholder="Search name / emailâ€¦"
+                placeholder="Search name / email..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -124,10 +119,10 @@ const WorkersList = () => {
               <tbody>
                 {workers.map((w) => (
                   <tr key={w._id} className={TR}>
-                    <td className={TD}>{w.userId?.name ?? "â€”"}</td>
-                    <td className={TD}>{w.userId?.email ?? "â€”"}</td>
+                    <td className={TD}>{w.userId?.name ?? "-"}</td>
+                    <td className={TD}>{w.userId?.email ?? "-"}</td>
                     <td className={TD}><span className={badgeCls(statusBadge(w.status))}>{w.status}</span></td>
-                    <td className={TD}>â­ {w.rating?.toFixed(1) ?? "0.0"}</td>
+                    <td className={TD}>* {w.rating?.toFixed(1) ?? "0.0"}</td>
                     <td className={TD}>{w.completedTasks ?? 0}</td>
                     <td className={TD}>
                       <span className={badgeCls(isBanned(w) ? "red" : "green")}>{isBanned(w) ? "Banned" : "Active"}</span>
@@ -156,14 +151,14 @@ const WorkersList = () => {
       {profileModal && (
         <div className={OVERLAY} onClick={() => setProfileModal(null)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-gray-900 mb-4">Worker Profile â€” {profileModal.userId?.name}</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Worker Profile - {profileModal.userId?.name}</h2>
             {!profileData ? (
-              <div className="text-center py-8 text-gray-400 text-sm">Loading profileâ€¦</div>
+              <div className="text-center py-8 text-gray-400 text-sm">Loading profile...</div>
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-3 mb-5 text-sm">
                   <div><span className="font-semibold text-gray-600">Email:</span> {profileData.worker.userId?.email}</div>
-                  <div><span className="font-semibold text-gray-600">Rating:</span> â­ {profileData.worker.rating?.toFixed(1)}</div>
+                  <div><span className="font-semibold text-gray-600">Rating:</span> * {profileData.worker.rating?.toFixed(1)}</div>
                   <div><span className="font-semibold text-gray-600">Tasks Completed:</span> {profileData.worker.completedTasks}</div>
                   <div>
                     <span className="font-semibold text-gray-600">Status:</span>{" "}
@@ -192,10 +187,10 @@ const WorkersList = () => {
       {banModal && (
         <div className={OVERLAY} onClick={() => setBanModal(null)}>
           <div className={MODAL} onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-gray-900 mb-4">Ban Worker â€” {banModal.userId?.name}</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Ban Worker - {banModal.userId?.name}</h2>
             <div className="mb-4">
               <label className={labelCls}>Reason (optional)</label>
-              <textarea className={inputCls} rows={2} value={banReason} onChange={(e) => setBanReason(e.target.value)} placeholder="Enter reasonâ€¦" />
+              <textarea className={inputCls} rows={2} value={banReason} onChange={(e) => setBanReason(e.target.value)} placeholder="Enter reason..." />
             </div>
             <div className="mb-4">
               <label className={labelCls}>Duration (hours, leave empty for permanent)</label>

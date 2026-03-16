@@ -43,7 +43,7 @@ const CategoryModal = ({ category, onClose, onSave }) => {
               <input className={inputCls} required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Plumbing" />
             </div>
             <div>
-              <label className={labelCls}>Min Price (₹) *</label>
+              <label className={labelCls}>Min Price (INR ) *</label>
               <input className={inputCls} required type="number" min={0} value={minPrice} onChange={(e) => setMinPrice(e.target.value)} placeholder="e.g. 200" />
             </div>
           </div>
@@ -68,7 +68,7 @@ const CategoryModal = ({ category, onClose, onSave }) => {
                   />
                   <input
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    type="number" min={0} placeholder="Min ₹"
+                    type="number" min={0} placeholder="Min INR "
                     value={sub.minPrice}
                     onChange={(e) => updateSub(i, "minPrice", e.target.value)}
                   />
@@ -81,7 +81,7 @@ const CategoryModal = ({ category, onClose, onSave }) => {
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
             <button type="button" className={btnCls("ghost")} onClick={onClose}>Cancel</button>
             <button type="submit" className={btnCls("primary")} disabled={saving}>
-              {saving ? "Saving…" : "Save"}
+              {saving ? "Saving..." : "Save"}
             </button>
           </div>
         </form>

@@ -23,7 +23,7 @@ const TasksMonitor = () => {
     fetchTasks({ page: 1, limit: 20, status: statusFilter, search });
   };
 
-  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading tasks…</div>;
+  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading tasks...</div>;
   if (error)   return <div className="text-center py-16 text-red-500 text-sm">{error}</div>;
 
   return (
@@ -43,7 +43,7 @@ const TasksMonitor = () => {
             <form onSubmit={handleSearch} className="flex gap-2">
               <input
                 className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48"
-                placeholder="Search title…"
+                placeholder="Search title..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -73,7 +73,7 @@ const TasksMonitor = () => {
                   <tr key={t._id} className={TR}>
                     <td className={TD + " font-medium"}>{t.title}</td>
                     <td className={TD}>{t.taskType}</td>
-                    <td className={TD}>{t.userId?.name ?? "—"}</td>
+                    <td className={TD}>{t.userId?.name ?? "-"}</td>
                     <td className={TD}>
                       {t.assignedWorkerId?.userId?.name ?? (
                         <span className="text-gray-400 text-xs">Unassigned</span>

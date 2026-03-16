@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axiosInstance from "../../api/axios.jsx";
+import { usePopup } from "../../context/PopupContext.jsx";
 import ImageSection from "./ImageSection";
 
 const PASSWORD_REGEX =
@@ -38,9 +39,8 @@ const ForgotPassword = () => {
   const [step, setStep] = useState("request");
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [now, setNow] = useState(Date.now());
+  const { showPopup } = usePopup();
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -60,21 +60,21 @@ const ForgotPassword = () => {
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
-    setError("");
-    setSuccess("");
   };
 
   const handleRequestOtp = async (event) => {
     event.preventDefault();
 
     if (!form.email) {
-      setError("Email is required");
+      showPopup({
+        type: "warning",
+        title: "Email Required",
+        message: "Please enter your email address",
+      });
       return;
     }
 
     setLoading(true);
-    setError("");
-    setSuccess("");
 
     try {
       const response = await axiosInstance.post(
@@ -87,9 +87,17 @@ const ForgotPassword = () => {
         otpExpiresAt: response.data.otpExpiresAt,
       });
       setStep("reset");
-      setSuccess(response.data.message || "OTP sent to your email");
+      showPopup({
+        type: "success",
+        title: "OTP Sent",
+        message: response.data.message || "OTP sent to your email",
+      });
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "Failed to send OTP");
+      showPopup({
+        type: "error",
+        title: "OTP Request Failed",
+        message: requestError.response?.data?.message || "Failed to send OTP",
+      });
       if (requestError.response?.data?.resendAvailableAt) {
         setMeta((prev) => ({
           ...prev,
@@ -107,8 +115,6 @@ const ForgotPassword = () => {
     }
 
     setResendLoading(true);
-    setError("");
-    setSuccess("");
 
     try {
       const response = await axiosInstance.post(
@@ -120,9 +126,17 @@ const ForgotPassword = () => {
         resendAvailableAt: response.data.resendAvailableAt,
         otpExpiresAt: response.data.otpExpiresAt,
       });
-      setSuccess(response.data.message || "OTP resent successfully");
+      showPopup({
+        type: "info",
+        title: "OTP Resent",
+        message: response.data.message || "OTP resent successfully",
+      });
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "Failed to resend OTP");
+      showPopup({
+        type: "error",
+        title: "Resend Failed",
+        message: requestError.response?.data?.message || "Failed to resend OTP",
+      });
       if (requestError.response?.data?.resendAvailableAt) {
         setMeta((prev) => ({
           ...prev,
@@ -138,25 +152,34 @@ const ForgotPassword = () => {
     event.preventDefault();
 
     if (!form.otp || form.otp.trim().length !== 6) {
-      setError("Enter the 6-digit OTP sent to your email");
+      showPopup({
+        type: "warning",
+        title: "Invalid OTP",
+        message: "Enter the 6-digit OTP sent to your email",
+      });
       return;
     }
 
     if (!PASSWORD_REGEX.test(form.password)) {
-      setError(
-        "Password must be 8+ chars with uppercase, lowercase, number, and special character",
-      );
+      showPopup({
+        type: "warning",
+        title: "Weak Password",
+        message:
+          "Password must be 8+ chars with uppercase, lowercase, number, and special character",
+      });
       return;
     }
 
     if (form.password !== form.confirmPassword) {
-      setError("Passwords do not match");
+      showPopup({
+        type: "warning",
+        title: "Password Mismatch",
+        message: "Passwords do not match",
+      });
       return;
     }
 
     setLoading(true);
-    setError("");
-    setSuccess("");
 
     try {
       const response = await axiosInstance.post("/api/auth/forgot-password/reset", {
@@ -165,10 +188,18 @@ const ForgotPassword = () => {
         password: form.password,
       });
 
-      setSuccess(response.data.message || "Password reset successful");
+      showPopup({
+        type: "success",
+        title: "Password Updated",
+        message: response.data.message || "Password reset successful",
+      });
       window.setTimeout(() => navigate("/login"), 1200);
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "Failed to reset password");
+      showPopup({
+        type: "error",
+        title: "Reset Failed",
+        message: requestError.response?.data?.message || "Failed to reset password",
+      });
     } finally {
       setLoading(false);
     }
@@ -186,18 +217,6 @@ const ForgotPassword = () => {
               ? "Enter your email to receive a reset OTP."
               : "Enter the OTP and choose a new password."}
           </p>
-
-          {error && (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-              {success}
-            </div>
-          )}
 
           {step === "request" ? (
             <form onSubmit={handleRequestOtp} className="space-y-4">

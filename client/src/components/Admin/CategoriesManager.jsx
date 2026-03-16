@@ -2,32 +2,32 @@ import { useState } from "react";
 import { useSelector } from "react-redux";
 import useAdminCategories from "../../hooks/admin/useAdminCategories";
 import CategoryModal from "./CategoryModal";
-import { badgeCls, btnCls, alertCls, TH, TD, TR, OVERLAY, MODAL } from "./adminUtils";
+import { badgeCls, btnCls, TH, TD, TR, OVERLAY, MODAL } from "./adminUtils";
+import { usePopup } from "../../context/PopupContext";
 
 const CategoriesManager = () => {
   const { loading, error, createCategory, updateCategory, deleteCategory } = useAdminCategories();
   const categories = useSelector((s) => s.admin.categories);
   const [modal, setModal] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [alert, setAlert] = useState(null);
-
-  const showAlert = (msg, type = "success") => {
-    setAlert({ msg, type });
-    setTimeout(() => setAlert(null), 3000);
-  };
+  const { showPopup } = usePopup();
 
   const handleSave = async (data) => {
     try {
       if (modal === "create") {
         await createCategory(data);
-        showAlert("Category created!");
+        showPopup({ type: "success", title: "Category Created", message: "Category created successfully." });
       } else {
         await updateCategory(modal._id, data);
-        showAlert("Category updated!");
+        showPopup({ type: "success", title: "Category Updated", message: "Category updated successfully." });
       }
       setModal(null);
     } catch (err) {
-      showAlert(err.response?.data?.message || "Failed to save category", "error");
+      showPopup({
+        type: "error",
+        title: "Save Failed",
+        message: err.response?.data?.message || "Failed to save category",
+      });
     }
   };
 
@@ -35,19 +35,18 @@ const CategoriesManager = () => {
     try {
       await deleteCategory(id);
       setDeleteConfirm(null);
-      showAlert("Category deleted.");
+      showPopup({ type: "success", title: "Category Deleted", message: "Category deleted successfully." });
     } catch {
-      showAlert("Failed to delete category", "error");
+      showPopup({ type: "error", title: "Delete Failed", message: "Failed to delete category" });
     }
   };
 
-  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading categories…</div>;
+  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Loading categories...</div>;
   if (error)   return <div className="text-center py-16 text-red-500 text-sm">{error}</div>;
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Categories</h1>
-      {alert && <div className={alertCls(alert.type)}>{alert.msg}</div>}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
@@ -75,12 +74,12 @@ const CategoriesManager = () => {
                       {c.icon && <span className="mr-1.5">{c.icon}</span>}
                       <strong>{c.name}</strong>
                     </td>
-                    <td className={TD}>₹{c.minPrice}</td>
+                    <td className={TD}>INR {c.minPrice}</td>
                     <td className={TD}>
                       {c.subCategories?.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {c.subCategories.map((sub, i) => (
-                            <span key={i} className={badgeCls("blue")}>{sub.name} — ₹{sub.minPrice}</span>
+                            <span key={i} className={badgeCls("blue")}>{sub.name} - INR {sub.minPrice}</span>
                           ))}
                         </div>
                       ) : (
