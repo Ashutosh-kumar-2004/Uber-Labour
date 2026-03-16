@@ -1,40 +1,93 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import useWorkerProfile from "../../hooks/worker/useWorkerProfile";
 import {
   ArrowLeft,
+  Save,
+  CheckCircle,
   Mail,
   Phone,
-  Star,
-  Briefcase,
+  FileImage,
   Shield,
-  Calendar,
-  LogOut,
-  ChevronRight,
-  User as UserIcon,
-  Zap,
-  Award,
-  TrendingUp,
-  Edit3,
-  IndianRupee,
-  CheckCircle,
+  ExternalLink,
+  User,
+  CircleCheck,
+  CircleX,
 } from "lucide-react";
 
 const WorkerProfile = () => {
-  const { user, logout } = useAuth();
-  const { data: profile, loading } = useWorkerProfile();
+  const { user: authUser } = useAuth();
+  const { data: profile, loading, updateProfile } = useWorkerProfile();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("contact");
+  const [saving, setSaving] = useState(false);
+  const [popup, setPopup] = useState(null);
+  const [profilePreview, setProfilePreview] = useState("");
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    contactNumber: "",
+    address: "",
+  });
 
+  const profileUser = profile?.user || authUser;
   const worker = profile?.worker;
-  const activeTask = profile?.activeTask;
 
-  const memberSince = worker?.createdAt
-    ? new Date(worker.createdAt).toLocaleDateString("en-IN", {
+  useEffect(() => {
+    setForm({
+      name: profileUser?.name || "",
+      email: profileUser?.email || "",
+      contactNumber: profileUser?.contactNumber || "",
+      address: profileUser?.address || "",
+    });
+    setProfilePreview(profileUser?.profileImage || "");
+  }, [
+    profileUser?.name,
+    profileUser?.email,
+    profileUser?.contactNumber,
+    profileUser?.address,
+    profileUser?.profileImage,
+  ]);
+
+  const memberSince = profileUser?.createdAt
+    ? new Date(profileUser.createdAt).toLocaleDateString("en-IN", {
       month: "long",
       year: "numeric",
     })
     : "N/A";
+
+  const maskedAadhaar = useMemo(() => {
+    if (!worker?.adharCardNumber) return "Not available";
+    return `XXXX-XXXX-${worker.adharCardNumber.slice(-4)}`;
+  }, [worker?.adharCardNumber]);
+
+  const onChange = (event) => {
+    const { name, value } = event.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const showPopup = (type, message) => {
+    setPopup({ type, message });
+    window.setTimeout(() => setPopup(null), 2500);
+  };
+
+  const handleSave = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      await updateProfile({
+        name: form.name,
+        contactNumber: form.contactNumber,
+        address: form.address,
+      });
+      showPopup("success", "Profile updated successfully.");
+    } catch (error) {
+      showPopup("error", error.response?.data?.message || "Could not update profile");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -46,6 +99,21 @@ const WorkerProfile = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {popup && (
+        <div className="fixed top-5 right-5 z-120 animate-in slide-in-from-top-2 fade-in duration-300">
+          <div
+            className={`min-w-65 max-w-sm rounded-xl border px-4 py-3 shadow-xl backdrop-blur-sm text-sm font-medium flex items-center gap-2 ${
+              popup.type === "success"
+                ? "bg-green-50 border-green-200 text-green-800"
+                : "bg-red-50 border-red-200 text-red-800"
+            }`}
+          >
+            {popup.type === "success" ? <CircleCheck size={16} /> : <CircleX size={16} />}
+            <span>{popup.message}</span>
+          </div>
+        </div>
+      )}
+
       {/* ── Top Bar ── */}
       <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4 sticky top-0 z-50">
         <button
@@ -59,187 +127,187 @@ const WorkerProfile = () => {
         </span>
       </nav>
 
-      <main className="max-w-2xl mx-auto p-6 space-y-6">
-        {/* ── Avatar Card ── */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 h-28 relative">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(255,255,255,0.08),transparent)]" />
-          </div>
-          <div className="px-6 pb-6 -mt-12 flex flex-col items-center text-center">
-            <div className="w-24 h-24 bg-white rounded-full border-4 border-white shadow-xl flex items-center justify-center text-3xl font-black text-zinc-400 bg-zinc-100">
-              {user?.name?.[0] || "W"}
-            </div>
-            <h2 className="text-xl font-black mt-3 text-gray-900">
-              {user?.name || "Worker"}
-            </h2>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs font-bold uppercase tracking-widest text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
-                Worker
-              </span>
-              {worker?.status === "verified" && (
-                <span className="text-xs font-bold uppercase tracking-widest text-green-600 bg-green-50 px-3 py-1 rounded-full flex items-center gap-1">
-                  <CheckCircle size={10} /> Verified
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Stats Grid ── */}
-        <div className="grid grid-cols-3 gap-3">
-          <StatCard
-            icon={<Star size={18} className="text-amber-500" />}
-            value={worker?.rating?.toFixed(1) || "0.0"}
-            label="Rating"
-            bg="bg-amber-50"
-          />
-          <StatCard
-            icon={<CheckCircle size={18} className="text-green-500" />}
-            value={worker?.completedTasks ?? 0}
-            label="Completed"
-            bg="bg-green-50"
-          />
-          <StatCard
-            icon={<TrendingUp size={18} className="text-blue-500" />}
-            value={`${worker?.acceptanceRate ?? 100}%`}
-            label="Acceptance"
-            bg="bg-blue-50"
-          />
-        </div>
-
-        {/* ── Account Info ── */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 divide-y divide-gray-50">
-          <div className="px-6 py-4">
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Account Details
-            </p>
-          </div>
-
-          <InfoRow icon={<Mail size={16} />} label="Email" value={user?.email || "—"} />
-          <InfoRow icon={<Phone size={16} />} label="Phone" value={user?.contactNumber || "Not set"} />
-          <InfoRow
-            icon={<Shield size={16} />}
-            label="Aadhaar"
-            value={worker?.adharCardNumber ? `XXXX-XXXX-${worker.adharCardNumber.slice(-4)}` : "—"}
-          />
-          <InfoRow icon={<Calendar size={16} />} label="Member Since" value={memberSince} />
-        </div>
-
-        {/* ── Services ── */}
-        {worker?.services?.length > 0 && (
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-6 py-4">
-              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                My Services
+      <main className="max-w-5xl mx-auto p-6">
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="grid md:grid-cols-[300px_1fr]">
+            <aside className="border-r border-gray-200 p-5 space-y-5 bg-gray-50/60">
+              <p className="text-xs font-bold tracking-wide text-gray-500 uppercase">
+                Account Management
               </p>
-            </div>
-            <div className="px-6 pb-4 space-y-3">
-              {worker.services.map((s, i) => (
-                <div
-                  key={i}
-                  className="bg-gray-50 rounded-2xl p-4 flex items-center gap-4"
+
+              <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                <div className="aspect-4/3 w-full rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden">
+                  {profilePreview ? (
+                    <img
+                      src={profilePreview}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-center text-gray-500 px-3">
+                      <User size={26} className="mx-auto mb-2" />
+                      <p className="text-xs font-medium">No profile image uploaded</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-2">
+                <p className="text-xs font-bold uppercase text-gray-500">Verification</p>
+                <p className="text-sm font-semibold text-gray-800">Aadhaar: {maskedAadhaar}</p>
+                <p className="text-sm text-gray-700">Member since: {memberSince}</p>
+                <p className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-green-50 text-green-700">
+                  <CheckCircle size={12} /> {worker?.status || "pending"}
+                </p>
+              </div>
+            </aside>
+
+            <section className="p-5 md:p-6">
+              <div className="flex items-center gap-2 border-b border-gray-200 pb-4 mb-6">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("contact")}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    activeTab === "contact"
+                      ? "bg-black text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
                 >
-                  <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center shrink-0">
-                    <Briefcase size={18} className="text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-black text-gray-900">
-                      {s.category}
+                  Contact Details
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("documents")}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    activeTab === "documents"
+                      ? "bg-black text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  Documents
+                </button>
+              </div>
+
+              {activeTab === "contact" ? (
+                <form onSubmit={handleSave} className="space-y-6">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Contact Details</h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Update your profile and contact information. Email is locked.
                     </p>
-                    {s.subCategories?.length > 0 && (
-                      <p className="text-[10px] text-gray-400 font-medium truncate">
-                        {s.subCategories.join(", ")}
-                      </p>
-                    )}
                   </div>
-                  <div className="text-right shrink-0">
-                    {s.hourlyRate && (
-                      <p className="text-sm font-black text-green-600 flex items-center gap-0.5">
-                        <IndianRupee size={12} />{s.hourlyRate}/hr
-                      </p>
-                    )}
-                    {s.experience != null && (
-                      <p className="text-[10px] text-gray-400 font-bold">
-                        {s.experience} yr{s.experience !== 1 ? "s" : ""} exp
-                      </p>
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Name</label>
+                      <input
+                        name="name"
+                        value={form.name}
+                        onChange={onChange}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20"
+                        placeholder="Your full name"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Email (read-only)</label>
+                      <div className="relative">
+                        <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          name="email"
+                          value={form.email}
+                          readOnly
+                          disabled
+                          className="w-full border border-gray-200 bg-gray-100 rounded-lg pl-9 pr-3 py-2.5 text-sm text-gray-500 cursor-not-allowed"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Phone</label>
+                      <div className="relative">
+                        <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          name="contactNumber"
+                          value={form.contactNumber}
+                          onChange={onChange}
+                          maxLength={10}
+                          className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20"
+                          placeholder="10-digit phone"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Status</label>
+                      <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2.5 text-sm text-gray-700 capitalize">
+                        {worker?.status || "pending"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Address</label>
+                    <textarea
+                      name="address"
+                      value={form.address}
+                      onChange={onChange}
+                      rows={4}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20"
+                      placeholder="Your address"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="inline-flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-zinc-800 disabled:opacity-60"
+                  >
+                    <Save size={14} /> {saving ? "Saving..." : "Save Changes"}
+                  </button>
+                </form>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Uploaded Documents</h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      You can view the document used for worker verification.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-sm text-gray-700 mb-3 flex items-center gap-2">
+                      <Shield size={15} /> Aadhaar: <span className="font-semibold">{maskedAadhaar}</span>
+                    </p>
+
+                    {worker?.idCardImage ? (
+                      <>
+                        <img
+                          src={worker.idCardImage}
+                          alt="Worker ID"
+                          className="w-full max-w-xl rounded-xl border border-gray-200"
+                        />
+                        <a
+                          href={worker.idCardImage}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 mt-3 text-sm font-semibold text-blue-700 hover:text-blue-800"
+                        >
+                          Open document in new tab <ExternalLink size={14} />
+                        </a>
+                      </>
+                    ) : (
+                      <div className="text-sm text-gray-500">No document uploaded yet.</div>
                     )}
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
+            </section>
           </div>
-        )}
-
-        {/* ── Quick Actions ── */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 py-4">
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Quick Actions
-            </p>
-          </div>
-
-          <ActionRow
-            icon={<Edit3 size={16} className="text-blue-500" />}
-            label="Edit Profile"
-            onClick={() => { }}
-          />
-          <ActionRow
-            icon={<Award size={16} className="text-amber-500" />}
-            label="My Reviews"
-            onClick={() => { }}
-          />
-          <ActionRow
-            icon={<LogOut size={16} className="text-red-500" />}
-            label="Logout"
-            danger
-            onClick={() => logout()}
-          />
         </div>
-
-        {/* Bottom spacing */}
-        <div className="h-6" />
       </main>
     </div>
   );
 };
-
-// ── Helper components ─────────────────────────────────
-const StatCard = ({ icon, value, label, bg }) => (
-  <div className={`${bg} rounded-2xl p-4 text-center border border-gray-100`}>
-    <div className="flex justify-center mb-1">{icon}</div>
-    <p className="text-xl font-black text-gray-900">{value}</p>
-    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
-      {label}
-    </p>
-  </div>
-);
-
-const InfoRow = ({ icon, label, value }) => (
-  <div className="px-6 py-3.5 flex items-center gap-4">
-    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 shrink-0">
-      {icon}
-    </div>
-    <div className="flex-1 min-w-0">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
-        {label}
-      </p>
-      <p className="text-sm font-bold text-gray-900 truncate">{value}</p>
-    </div>
-  </div>
-);
-
-const ActionRow = ({ icon, label, danger = false, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`w-full px-6 py-3.5 flex items-center gap-4 hover:bg-gray-50 transition-colors ${danger ? "text-red-600" : "text-gray-700"
-      }`}
-  >
-    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-      {icon}
-    </div>
-    <span className="text-sm font-bold flex-1 text-left">{label}</span>
-    <ChevronRight size={16} className="text-gray-300" />
-  </button>
-);
 
 export default WorkerProfile;
