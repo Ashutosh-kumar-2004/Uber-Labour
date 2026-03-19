@@ -21,7 +21,7 @@ const walletTransactionSchema = new mongoose.Schema(
     },
     method: {
       type: String,
-      enum: ["upi", "card", "netbanking"],
+      enum: ["upi", "card", "netbanking", "wallet"],
       required: true,
     },
     amount: {

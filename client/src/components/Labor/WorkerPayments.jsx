@@ -11,6 +11,7 @@ import {
   Plus,
   ShieldAlert,
   ArrowDownCircle,
+  Wallet,
 } from "lucide-react";
 import axiosInstance from "../../api/axios.jsx";
 import { usePopup } from "../../context/PopupContext";
@@ -41,6 +42,7 @@ const WorkerPayments = () => {
   const [summary, setSummary] = useState({
     totalEarnings: 0,
     totalWithdrawn: 0,
+    totalSpentOnDues: 0,
     walletCredit: 0,
     outstandingDue: 0,
     withdrawableAmount: 0,
@@ -62,15 +64,17 @@ const WorkerPayments = () => {
       setSummary({
         totalEarnings: Number(historySummary.totalEarnings ?? profileWorker.totalEarnings ?? 0),
         totalWithdrawn: Number(historySummary.totalWithdrawn ?? profileWorker.totalWithdrawn ?? 0),
+        totalSpentOnDues: Number(historySummary.totalSpentOnDues ?? profileWorker.totalSpentOnDues ?? 0),
         walletCredit: Number(historySummary.walletCredit ?? profileWorker.walletCredit ?? 0),
         outstandingDue: Number(historySummary.outstandingDue ?? profileWorker.outstandingFines ?? 0),
-        withdrawableAmount: Number(historySummary.withdrawableAmount ?? Math.max(0, Number(profileWorker.totalEarnings || 0) + Number(profileWorker.walletCredit || 0) - Number(profileWorker.totalWithdrawn || 0))),
+        withdrawableAmount: Number(historySummary.withdrawableAmount ?? Math.max(0, Number(profileWorker.totalEarnings || 0) + Number(profileWorker.walletCredit || 0) - Number(profileWorker.totalWithdrawn || 0) - Number(profileWorker.totalSpentOnDues || 0))),
       });
       setHistory(Array.isArray(historyRes.data?.transactions) ? historyRes.data.transactions : []);
     } catch {
       setSummary({
         totalEarnings: 0,
         totalWithdrawn: 0,
+        totalSpentOnDues: 0,
         walletCredit: 0,
         outstandingDue: 0,
         withdrawableAmount: 0,
@@ -302,6 +306,68 @@ const WorkerPayments = () => {
     }
   };
 
+  const handlePayFromEarnings = async () => {
+    const payAmount = Number(amount);
+    if (!payAmount || payAmount <= 0) {
+      showPopup({
+        type: "error",
+        title: "Validation Error",
+        message: "Enter a valid amount",
+      });
+      return;
+    }
+
+    if (payAmount > outstandingDue) {
+      showPopup({
+        type: "error",
+        title: "Validation Error",
+        message: `Amount cannot exceed due amount (${formatAmount(outstandingDue)})`,
+      });
+      return;
+    }
+
+    if (payAmount > withdrawableAmount) {
+      showPopup({
+        type: "error",
+        title: "Insufficient Earnings",
+        message: `You can pay up to ${formatAmount(withdrawableAmount)} from earnings.`,
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const { data } = await axiosInstance.post("/api/worker/wallet/pay-due", {
+        amount: payAmount,
+        method: "wallet",
+      });
+
+      if (data?.transaction) {
+        setHistory((prev) => [data.transaction, ...prev].slice(0, 50));
+      }
+
+      setSummary((prev) => ({
+        ...prev,
+        ...(data?.summary || {}),
+        outstandingDue: Number(data?.remainingDue ?? data?.summary?.outstandingDue ?? prev.outstandingDue ?? 0),
+      }));
+      setAmount("");
+      showPopup({
+        type: "success",
+        title: "Due Cleared From Earnings",
+        message: "Dues paid successfully using your earnings balance.",
+      });
+    } catch (error) {
+      showPopup({
+        type: "error",
+        title: "Payment Failed",
+        message: error?.response?.data?.message || "Could not pay due from earnings.",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4 sticky top-0 z-50">
@@ -332,6 +398,8 @@ const WorkerPayments = () => {
             <p className="text-2xl font-black text-green-700 mt-1">{formatAmount(summary.totalEarnings)}</p>
             <p className="text-xs font-bold text-gray-500 mt-3">Withdrawable</p>
             <p className="text-xl font-black text-blue-700 mt-1">{formatAmount(withdrawableAmount)}</p>
+            <p className="text-xs font-bold text-gray-500 mt-3">Paid From Earnings</p>
+            <p className="text-lg font-black text-purple-700 mt-1">{formatAmount(summary.totalSpentOnDues)}</p>
             <p className="text-xs font-bold text-gray-500 mt-3">Total Dues Paid</p>
             <p className="text-xl font-black text-gray-900 mt-1">{formatAmount(totalPaidDues)}</p>
           </div>
@@ -618,6 +686,19 @@ const WorkerPayments = () => {
                 </>
               )}
             </button>
+
+            <button
+              type="button"
+              onClick={handlePayFromEarnings}
+              disabled={isProcessing || outstandingDue <= 0 || withdrawableAmount <= 0}
+              className="w-full rounded-xl border border-gray-300 bg-white text-gray-900 py-3 text-sm font-black uppercase tracking-widest hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              <Wallet size={16} />
+              Pay Due From Earnings
+            </button>
+            <p className="text-xs text-gray-500">
+              Available from earnings: <span className="font-black text-gray-800">{formatAmount(withdrawableAmount)}</span>
+            </p>
           </form>
 
           <div className="my-6 border-t border-gray-100" />

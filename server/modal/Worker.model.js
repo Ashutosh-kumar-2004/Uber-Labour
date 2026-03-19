@@ -86,6 +86,10 @@ const workerSchema = new mongoose.Schema(
     type: Number,
     default: 0
   },
+  totalSpentOnDues: {
+    type: Number,
+    default: 0
+  },
   walletCredit: {
     type: Number,
     default: 0

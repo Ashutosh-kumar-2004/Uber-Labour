@@ -29,16 +29,18 @@ import {
 const getWorkerWalletSummary = (worker) => {
   const totalEarnings = Number(worker?.totalEarnings || 0);
   const totalWithdrawn = Number(worker?.totalWithdrawn || 0);
+  const totalSpentOnDues = Number(worker?.totalSpentOnDues || 0);
   const walletCredit = Number(worker?.walletCredit || 0);
   const outstandingDue = Number(worker?.outstandingFines || 0);
   const withdrawableAmount = Math.max(
     0,
-    Math.round((totalEarnings + walletCredit - totalWithdrawn) * 100) / 100,
+    Math.round((totalEarnings + walletCredit - totalWithdrawn - totalSpentOnDues) * 100) / 100,
   );
 
   return {
     totalEarnings,
     totalWithdrawn,
+    totalSpentOnDues,
     walletCredit,
     outstandingDue,
     withdrawableAmount,
@@ -162,7 +164,7 @@ export const getWorkerPlatformFee = async (req, res) => {
 export const payWorkerDues = async (req, res) => {
   try {
     const amount = Number(req.body?.amount);
-    const allowedMethods = ["upi", "card", "netbanking"];
+    const allowedMethods = ["upi", "card", "netbanking", "wallet"];
     const method = allowedMethods.includes(req.body?.method) ? req.body.method : "upi";
 
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -185,6 +187,20 @@ export const payWorkerDues = async (req, res) => {
         success: false,
         message: `Amount exceeds outstanding dues. Maximum payable is ₹${outstanding}`,
       });
+    }
+
+    if (method === "wallet") {
+      const summary = getWorkerWalletSummary(worker);
+      if (normalizedAmount > summary.withdrawableAmount) {
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient earnings balance. Available ₹${summary.withdrawableAmount}`,
+        });
+      }
+
+      worker.totalSpentOnDues = Math.round(
+        (Number(worker.totalSpentOnDues || 0) + normalizedAmount) * 100,
+      ) / 100;
     }
 
     const remainingBanFine = Math.max(
