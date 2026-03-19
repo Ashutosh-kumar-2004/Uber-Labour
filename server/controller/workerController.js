@@ -26,14 +26,89 @@ import {
   NO_SHOW_BAN_MS_WORKER,
 } from "../constants/constant.js";
 
+const getWorkerWalletSummary = (worker) => {
+  const totalEarnings = Number(worker?.totalEarnings || 0);
+  const totalWithdrawn = Number(worker?.totalWithdrawn || 0);
+  const walletCredit = Number(worker?.walletCredit || 0);
+  const outstandingDue = Number(worker?.outstandingFines || 0);
+  const withdrawableAmount = Math.max(
+    0,
+    Math.round((totalEarnings + walletCredit - totalWithdrawn) * 100) / 100,
+  );
+
+  return {
+    totalEarnings,
+    totalWithdrawn,
+    walletCredit,
+    outstandingDue,
+    withdrawableAmount,
+  };
+};
+
+const backfillWorkerTotalEarnings = async (worker) => {
+  if (!worker?._id) return worker;
+
+  // Keep existing non-zero values untouched.
+  if (Number(worker.totalEarnings || 0) > 0) {
+    return worker;
+  }
+
+  const result = await Task.aggregate([
+    {
+      $match: {
+        assignedWorkerId: worker._id,
+        status: "completed",
+      },
+    },
+    {
+      $project: {
+        workerEarning: {
+          $max: [
+            0,
+            {
+              $subtract: [
+                { $ifNull: ["$price", 0] },
+                {
+                  $multiply: [
+                    { $ifNull: ["$price", 0] },
+                    {
+                      $divide: [{ $ifNull: ["$platformFeePercent", 10] }, 100],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalEarnings: { $sum: "$workerEarning" },
+      },
+    },
+  ]);
+
+  const computedTotal = Math.round(Number(result?.[0]?.totalEarnings || 0) * 100) / 100;
+  if (computedTotal <= 0) {
+    return worker;
+  }
+
+  worker.totalEarnings = computedTotal;
+  await worker.save();
+  return worker;
+};
+
 /* ══════════════════════════════════════════════════
    GET WORKER HISTORY — paginated list of completed tasks for the worker
    GET /api/worker/history?page=1&limit=10
 ══════════════════════════════════════════════════ */
 export const getWorkerHistory = async (req, res) => {
   try {
-    const worker = await Worker.findOne({ userId: req.user._id });
+    let worker = await Worker.findOne({ userId: req.user._id });
     if (!worker) return res.status(404).json({ message: "Worker not found" });
+    worker = await backfillWorkerTotalEarnings(worker);
 
     const page  = Math.max(1, parseInt(req.query.page)  || 1);
     const limit = Math.min(50, parseInt(req.query.limit) || 10);
@@ -51,6 +126,7 @@ export const getWorkerHistory = async (req, res) => {
     return res.status(200).json({
       success: true,
       tasks,
+      stats: getWorkerWalletSummary(worker),
       pagination: {
         total,
         page,
@@ -111,6 +187,13 @@ export const payWorkerDues = async (req, res) => {
       });
     }
 
+    const remainingBanFine = Math.max(
+      0,
+      Number(worker.banFineAmount || 0) - Number(worker.banFinePaid || 0),
+    );
+    const allocationToBanFine = Math.min(normalizedAmount, remainingBanFine);
+
+    worker.banFinePaid = Math.round((Number(worker.banFinePaid || 0) + allocationToBanFine) * 100) / 100;
     worker.outstandingFines = Math.max(0, Math.round((outstanding - normalizedAmount) * 100) / 100);
     await worker.save();
 
@@ -128,6 +211,7 @@ export const payWorkerDues = async (req, res) => {
       message: "Dues payment successful",
       paidAmount: normalizedAmount,
       remainingDue: worker.outstandingFines,
+      summary: getWorkerWalletSummary(worker),
       transaction: {
         id: transaction._id,
         type: transaction.type,
@@ -143,12 +227,65 @@ export const payWorkerDues = async (req, res) => {
   }
 };
 
+export const addWorkerFunds = async (req, res) => {
+  try {
+    const amount = Number(req.body?.amount);
+    const allowedMethods = ["upi", "card", "netbanking"];
+    const method = allowedMethods.includes(req.body?.method) ? req.body.method : "upi";
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ success: false, message: "Enter a valid amount" });
+    }
+
+    const worker = await Worker.findOne({ userId: req.user._id, status: "verified" });
+    if (!worker) {
+      return res.status(404).json({ success: false, message: "Worker not found" });
+    }
+
+    const normalizedAmount = Math.round(amount * 100) / 100;
+    worker.walletCredit = Math.round((Number(worker.walletCredit || 0) + normalizedAmount) * 100) / 100;
+    await worker.save();
+
+    const transaction = await WalletTransaction.create({
+      userId: req.user._id,
+      type: "topup",
+      context: "worker_wallet",
+      method,
+      amount: normalizedAmount,
+      status: "success",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Wallet top-up successful",
+      addedAmount: normalizedAmount,
+      summary: getWorkerWalletSummary(worker),
+      transaction: {
+        id: transaction._id,
+        type: transaction.type,
+        method: transaction.method,
+        amount: transaction.amount,
+        status: transaction.status,
+        date: transaction.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("addWorkerFunds error:", error);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
 export const getWorkerPaymentHistory = async (req, res) => {
   try {
+    let worker = await Worker.findOne({ userId: req.user._id });
+    if (!worker) {
+      return res.status(404).json({ success: false, message: "Worker not found" });
+    }
+    worker = await backfillWorkerTotalEarnings(worker);
+
     const transactions = await WalletTransaction.find({
       userId: req.user._id,
-      type: "due_payment",
-      context: "worker_dues",
+      context: { $in: ["worker_dues", "worker_wallet"] },
     })
       .sort({ createdAt: -1 })
       .limit(50)
@@ -156,6 +293,7 @@ export const getWorkerPaymentHistory = async (req, res) => {
 
     return res.status(200).json({
       success: true,
+      summary: getWorkerWalletSummary(worker),
       transactions: transactions.map((txn) => ({
         id: txn._id,
         type: txn.type,
@@ -167,6 +305,63 @@ export const getWorkerPaymentHistory = async (req, res) => {
     });
   } catch (error) {
     console.error("getWorkerPaymentHistory error:", error);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+export const withdrawWorkerFunds = async (req, res) => {
+  try {
+    const amount = Number(req.body?.amount);
+    const allowedMethods = ["upi", "card", "netbanking"];
+    const method = allowedMethods.includes(req.body?.method) ? req.body.method : "upi";
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ success: false, message: "Enter a valid withdraw amount" });
+    }
+
+    const worker = await Worker.findOne({ userId: req.user._id, status: "verified" });
+    if (!worker) {
+      return res.status(404).json({ success: false, message: "Worker not found" });
+    }
+
+    const summary = getWorkerWalletSummary(worker);
+    const normalizedAmount = Math.round(amount * 100) / 100;
+
+    if (normalizedAmount > summary.withdrawableAmount) {
+      return res.status(400).json({
+        success: false,
+        message: `Amount exceeds withdrawable balance. Maximum withdrawable is ₹${summary.withdrawableAmount}`,
+      });
+    }
+
+    worker.totalWithdrawn = Math.round((Number(worker.totalWithdrawn || 0) + normalizedAmount) * 100) / 100;
+    await worker.save();
+
+    const transaction = await WalletTransaction.create({
+      userId: req.user._id,
+      type: "withdrawal",
+      context: "worker_wallet",
+      method,
+      amount: normalizedAmount,
+      status: "success",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Withdrawal request successful",
+      withdrawnAmount: normalizedAmount,
+      summary: getWorkerWalletSummary(worker),
+      transaction: {
+        id: transaction._id,
+        type: transaction.type,
+        method: transaction.method,
+        amount: transaction.amount,
+        status: transaction.status,
+        date: transaction.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("withdrawWorkerFunds error:", error);
     return res.status(500).json({ success: false, message: "Server Error" });
   }
 };
@@ -224,11 +419,12 @@ export const getWorkerReviews = async (req, res) => {
 export const getWorkerProfile = async (req, res) => {
   try {
     const userId = req.user._id;
-    const worker = await Worker.findOne({ userId });
+    let worker = await Worker.findOne({ userId });
 
     if (!worker) {
       return res.status(404).json({ message: "Worker profile not found" });
     }
+    worker = await backfillWorkerTotalEarnings(worker);
 
     const activeTask = await Task.findOne({
       assignedWorkerId: worker._id,
@@ -247,6 +443,7 @@ export const getWorkerProfile = async (req, res) => {
         createdAt: req.user.createdAt,
       },
       worker,
+      walletSummary: getWorkerWalletSummary(worker),
       activeTask,
       userBanExpiresAt: req.user.banExpiresAt ?? null,
     });
@@ -597,7 +794,7 @@ export const rejectTask = async (req, res) => {
     await Worker.findByIdAndUpdate(worker._id, {
       isOnline: false, // Go offline
       banExpiresAt: banExpiresAt,
-      $inc: { outstandingFines: fineAmount },
+      $inc: { outstandingFines: fineAmount, banFineAmount: fineAmount },
     });
 
     /* =========================
@@ -668,6 +865,7 @@ export const completeTask = async (req, res) => {
     const platformFeeAmount = Math.round(
       (task.price || 0) * ((task.platformFeePercent ?? 10) / 100),
     );
+    const workerEarnings = Math.max(0, (task.price || 0) - platformFeeAmount);
 
     task.status = "completed";
     task.completedAt = new Date();
@@ -681,6 +879,7 @@ export const completeTask = async (req, res) => {
     await Worker.findByIdAndUpdate(worker._id, {
       $inc: {
         completedTasks: 1,
+        totalEarnings: workerEarnings,
         outstandingFines: platformFeeAmount,
       },
       isOnline: true,
@@ -1022,7 +1221,7 @@ export const markArrived = async (req, res) => {
         taskTitle: task.title,
         workerName: worker.userId?.name || "Your worker",
       });
-      console.log(`[OTP] Sent to ${jobPoster.email} for task ${task._id}`);
+      
     } catch (mailErr) {
       // console.error("[OTP] Email send failed:", mailErr.message);
       // Do NOT fail the request — task status is already updated

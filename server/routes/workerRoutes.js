@@ -16,7 +16,9 @@ import {
   getCategories,
   getWorkerReviews,
   payWorkerDues,
+  addWorkerFunds,
   getWorkerPaymentHistory,
+  withdrawWorkerFunds,
 } from "../controller/workerController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -38,7 +40,9 @@ router.post("/tasks/:taskId/arrived", markArrived);    // worker taps "I've Arri
 router.post("/tasks/:taskId/verify-otp", verifyOTP);   // worker submits OTP from user
 router.get("/history", getWorkerHistory);              // worker's completed task history
 router.get("/wallet/history", getWorkerPaymentHistory);
+router.post("/wallet/add-funds", addWorkerFunds);
 router.post("/wallet/pay-due", payWorkerDues);
+router.post("/wallet/withdraw", withdrawWorkerFunds);
 router.get("/platform-fee", getWorkerPlatformFee);
 router.get("/categories", getCategories);               // dynamic categories for registration
 router.get("/reviews", getWorkerReviews);              // reviews received by worker

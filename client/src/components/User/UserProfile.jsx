@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { usePopup } from "../../context/PopupContext.jsx";
 import useUserProfile from "../../hooks/user/useUserProfile.jsx";
+import axiosInstance from "../../api/axios.jsx";
 import {
   ArrowLeft,
   Mail,
@@ -12,10 +13,15 @@ import {
   Upload,
   Trash2,
   Save,
+  Lock,
   User as UserIcon,
 } from "lucide-react";
 
-const UserProfile = () => {
+const UserProfile = ({
+  homePath = "/user",
+  pageTitle = "My Profile",
+  paymentsPath = "/user/payments",
+}) => {
   const { user: authUser, logout } = useAuth();
   const { showPopup } = usePopup();
   const { user: profileUser, loading, updateProfile } = useUserProfile();
@@ -26,11 +32,17 @@ const UserProfile = () => {
   const [removeProfileImage, setRemoveProfileImage] = useState(false);
   const [savingImage, setSavingImage] = useState(false);
   const [savingDetails, setSavingDetails] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
     contactNumber: "",
     address: "",
+  });
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   });
 
   const user = profileUser || authUser;
@@ -53,6 +65,11 @@ const UserProfile = () => {
   const handleFieldChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handlePasswordFieldChange = (event) => {
+    const { name, value } = event.target;
+    setPasswordForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const onProfileFileChange = (event) => {
@@ -137,6 +154,35 @@ const UserProfile = () => {
     }
   };
 
+  const handleChangePassword = async (event) => {
+    event.preventDefault();
+
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      showPopup({ type: "error", title: "Missing Fields", message: "Fill all password fields." });
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      showPopup({ type: "error", title: "Mismatch", message: "New password and confirm password must match." });
+      return;
+    }
+
+    setSavingPassword(true);
+    try {
+      await axiosInstance.post("/api/auth/change-password", {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      showPopup({ type: "success", title: "Password Updated", message: "Your password was changed successfully." });
+    } catch (error) {
+      showPopup({ type: "error", title: "Update Failed", message: error.response?.data?.message || "Could not change password" });
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
   const memberSince = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString("en-IN", {
       month: "long",
@@ -160,13 +206,13 @@ const UserProfile = () => {
       {/* ── Top Bar ── */}
       <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4 sticky top-0 z-50">
         <button
-          onClick={() => navigate("/user")}
+          onClick={() => navigate(homePath)}
           className="p-2 hover:bg-gray-100 rounded-full transition-colors"
         >
           <ArrowLeft size={20} className="text-gray-600" />
         </button>
         <span className="text-lg font-black uppercase tracking-tight">
-          My Profile
+          {pageTitle}
         </span>
       </nav>
 
@@ -247,6 +293,17 @@ const UserProfile = () => {
                 >
                   Wallet
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("security")}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    activeTab === "security"
+                      ? "bg-black text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  Security
+                </button>
               </div>
 
               {activeTab === "contact" ? (
@@ -320,7 +377,7 @@ const UserProfile = () => {
                     <Save size={14} /> {savingDetails ? "Saving..." : "Save Changes"}
                   </button>
                 </form>
-              ) : (
+              ) : activeTab === "wallet" ? (
                 <div className="space-y-4">
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">Wallet</h2>
@@ -341,13 +398,22 @@ const UserProfile = () => {
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => navigate("/user/payments")}
-                    className="inline-flex items-center gap-2 border border-gray-300 rounded-lg px-4 py-2 text-sm font-semibold hover:bg-gray-50"
-                  >
-                    <Wallet size={15} /> Open Payments
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => navigate(paymentsPath)}
+                      className="inline-flex items-center gap-2 bg-black text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-zinc-800"
+                    >
+                      <Wallet size={15} /> Add Amount To Wallet
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate(paymentsPath)}
+                      className="inline-flex items-center gap-2 border border-gray-300 rounded-lg px-4 py-2 text-sm font-semibold hover:bg-gray-50"
+                    >
+                      <Wallet size={15} /> Open Payments
+                    </button>
+                  </div>
 
                   <button
                     type="button"
@@ -357,6 +423,68 @@ const UserProfile = () => {
                     Logout
                   </button>
                 </div>
+              ) : (
+                <form onSubmit={handleChangePassword} className="space-y-6 max-w-xl">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Change Password</h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Use a strong password with uppercase, lowercase, number and symbol.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Current Password</label>
+                    <div className="relative">
+                      <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="password"
+                        name="currentPassword"
+                        value={passwordForm.currentPassword}
+                        onChange={handlePasswordFieldChange}
+                        className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20"
+                        placeholder="Enter current password"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">New Password</label>
+                    <div className="relative">
+                      <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="password"
+                        name="newPassword"
+                        value={passwordForm.newPassword}
+                        onChange={handlePasswordFieldChange}
+                        className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20"
+                        placeholder="Enter new password"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Confirm New Password</label>
+                    <div className="relative">
+                      <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="password"
+                        name="confirmPassword"
+                        value={passwordForm.confirmPassword}
+                        onChange={handlePasswordFieldChange}
+                        className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20"
+                        placeholder="Confirm new password"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={savingPassword}
+                    className="inline-flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-zinc-800 disabled:opacity-60"
+                  >
+                    <Save size={14} /> {savingPassword ? "Updating..." : "Update Password"}
+                  </button>
+                </form>
               )}
             </section>
           </div>

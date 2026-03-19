@@ -8,6 +8,7 @@ import {
 	resetPasswordWithOtp,
 	getMe,
 	logout,
+	changePassword,
 } from "../controller/authController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -21,5 +22,6 @@ router.post("/forgot-password/resend-otp", resendPasswordResetOtp);
 router.post("/forgot-password/reset", resetPasswordWithOtp);
 router.get("/me", protect, getMe);   // session restore on page reload
 router.post("/logout", logout);      // clear httpOnly cookie
+router.post("/change-password", protect, changePassword);
 
 export default router;

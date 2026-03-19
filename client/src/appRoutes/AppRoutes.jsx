@@ -22,6 +22,7 @@ const MyReviews = lazy(() => import("../components/User/MyReviews"));
 /* Admin pages */
 const AdminLayout = lazy(() => import("../components/Admin/AdminLayout"));
 const AdminDashboard = lazy(() => import("../components/Admin/AdminDashboard"));
+const AdminProfile = lazy(() => import("../components/Admin/AdminProfile"));
 const WorkerVerification = lazy(() => import("../components/Admin/WorkerVerification"));
 const WorkersList = lazy(() => import("../components/Admin/WorkersList"));
 const UsersList = lazy(() => import("../components/Admin/UsersList"));
@@ -92,6 +93,7 @@ const AppRoutes = () => {
           element={<AdminRoute><AdminLayout /></AdminRoute>}
         >
           <Route index element={<AdminDashboard />} />
+          <Route path="profile" element={<AdminProfile />} />
           <Route path="workers" element={<WorkerVerification />} />
           <Route path="workers/all" element={<WorkersList />} />
           <Route path="users" element={<UsersList />} />

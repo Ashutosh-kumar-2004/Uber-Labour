@@ -12,6 +12,13 @@ const useWorkerHistory = () => {
   const [page, setPage]       = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [total, setTotal]     = useState(0);
+  const [stats, setStats]     = useState({
+    totalEarnings: 0,
+    totalWithdrawn: 0,
+    walletCredit: 0,
+    outstandingDue: 0,
+    withdrawableAmount: 0,
+  });
   const LIMIT = 10;
 
   /** Fetch the first page (resets state). */
@@ -20,11 +27,18 @@ const useWorkerHistory = () => {
     setError(null);
     try {
       const res = await axiosInstance.get(`/api/worker/history?page=1&limit=${LIMIT}`);
-      const { tasks: data, pagination } = res.data;
+      const { tasks: data, pagination, stats: historyStats } = res.data;
       setTasks(data);
       setPage(1);
       setHasMore(pagination.hasMore);
       setTotal(pagination.total);
+      setStats(historyStats || {
+        totalEarnings: 0,
+        totalWithdrawn: 0,
+        walletCredit: 0,
+        outstandingDue: 0,
+        withdrawableAmount: 0,
+      });
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to load history.");
     } finally {
@@ -54,7 +68,7 @@ const useWorkerHistory = () => {
     }
   }, [loading, hasMore, page]);
 
-  return { tasks, loading, error, hasMore, total, fetchHistory, loadMore };
+  return { tasks, loading, error, hasMore, total, stats, fetchHistory, loadMore };
 };
 
 export default useWorkerHistory;

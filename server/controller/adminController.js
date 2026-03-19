@@ -8,6 +8,7 @@ import TaskRejection from "../modal/TaskRejection.model.js";
 import { Category } from "../modal/user/CategorySchema.modal.js";
 import { PlatformFee } from "../modal/PlatformFee.model.js";
 import Notification from "../modal/user/Notification.js";
+import WalletTransaction from "../modal/user/WalletTransaction.model.js";
 import { getIO } from "../services/socket.service.js";
 import {
   sendWorkerApprovedEmail,
@@ -29,6 +30,7 @@ export const getDashboardStats = async (req, res) => {
       rejectedWorkers,
       totalTasks,
       tasksByStatus,
+      platformEarnings,
       recentTasks,
       recentWorkers,
     ] = await Promise.all([
@@ -40,6 +42,36 @@ export const getDashboardStats = async (req, res) => {
       Task.countDocuments(),
       Task.aggregate([
         { $group: { _id: "$status", count: { $sum: 1 } } },
+      ]),
+      Task.aggregate([
+        { $match: { status: "completed" } },
+        {
+          $project: {
+            platformFeeAmount: {
+              $round: [
+                {
+                  $multiply: [
+                    { $ifNull: ["$price", 0] },
+                    {
+                      $divide: [
+                        { $ifNull: ["$platformFeePercent", 10] },
+                        100,
+                      ],
+                    },
+                  ],
+                },
+                2,
+              ],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalPlatformEarnings: { $sum: "$platformFeeAmount" },
+            completedTasksCount: { $sum: 1 },
+          },
+        },
       ]),
       Task.find()
         .sort({ createdAt: -1 })
@@ -55,6 +87,7 @@ export const getDashboardStats = async (req, res) => {
 
     const statusMap = {};
     tasksByStatus.forEach(({ _id, count }) => { statusMap[_id] = count; });
+    const finance = platformEarnings?.[0] || { totalPlatformEarnings: 0, completedTasksCount: 0 };
 
     return res.status(200).json({
       success: true,
@@ -69,6 +102,10 @@ export const getDashboardStats = async (req, res) => {
         tasks: {
           total: totalTasks,
           byStatus: statusMap,
+        },
+        finance: {
+          platformEarnings: Math.round(Number(finance.totalPlatformEarnings || 0) * 100) / 100,
+          completedTasksCount: Number(finance.completedTasksCount || 0),
         },
       },
       recentActivity: {
@@ -307,14 +344,18 @@ export const getWorkerProfile = async (req, res) => {
 ═══════════════════════════════════════════ */
 export const banWorker = async (req, res) => {
   try {
-    const { reason, durationHours } = req.body; // durationHours = null → permanent
+    const { reason, durationHours, fineAmount = 0 } = req.body; // durationHours = null → permanent
     const banExpiresAt = durationHours
       ? new Date(Date.now() + durationHours * 60 * 60 * 1000)
       : new Date("9999-12-31");
+    const normalizedFine = Math.max(0, Math.round(Number(fineAmount || 0) * 100) / 100);
 
     const worker = await Worker.findByIdAndUpdate(
       req.params.id,
-      { banExpiresAt },
+      {
+        banExpiresAt,
+        $inc: { outstandingFines: normalizedFine, banFineAmount: normalizedFine },
+      },
       { new: true }
     ).populate("userId", "name email");
 
@@ -325,8 +366,8 @@ export const banWorker = async (req, res) => {
       type: "worker_banned",
       title: "Account Banned",
       message: reason
-        ? `Your account has been banned. Reason: ${reason}`
-        : "Your account has been banned by an administrator.",
+        ? `Your account has been banned. Reason: ${reason}${normalizedFine > 0 ? ` | Penalty: ₹${normalizedFine}` : ""}`
+        : `Your account has been banned by an administrator.${normalizedFine > 0 ? ` Penalty: ₹${normalizedFine}` : ""}`,
     });
 
     try {
@@ -347,19 +388,41 @@ export const banWorker = async (req, res) => {
 ═══════════════════════════════════════════ */
 export const unbanWorker = async (req, res) => {
   try {
-    const worker = await Worker.findByIdAndUpdate(
-      req.params.id,
-      { banExpiresAt: null, outstandingFines: 0 },
-      { new: true }
-    ).populate("userId", "name email");
+    const worker = await Worker.findById(req.params.id).populate("userId", "name email");
 
     if (!worker) return res.status(404).json({ message: "Worker not found" });
+
+    const banFineAmount = Number(worker.banFineAmount || 0);
+    const banFinePaid = Number(worker.banFinePaid || 0);
+    const remainingBanFine = Math.max(0, Math.round((banFineAmount - banFinePaid) * 100) / 100);
+    const refundAmount = Math.max(0, Math.round(banFinePaid * 100) / 100);
+
+    worker.banExpiresAt = null;
+    worker.outstandingFines = Math.max(0, Math.round((Number(worker.outstandingFines || 0) - remainingBanFine) * 100) / 100);
+    worker.walletCredit = Math.round((Number(worker.walletCredit || 0) + refundAmount) * 100) / 100;
+    worker.banFineAmount = 0;
+    worker.banFinePaid = 0;
+    await worker.save();
+
+    if (refundAmount > 0) {
+      await WalletTransaction.create({
+        userId: worker.userId._id,
+        type: "ban_refund",
+        context: "worker_wallet",
+        method: "netbanking",
+        amount: refundAmount,
+        status: "success",
+      });
+    }
 
     await Notification.create({
       workerId: worker._id,
       type: "ban_lifted",
       title: "Ban Lifted",
-      message: "Your account ban has been removed by an administrator. You can now accept tasks.",
+      message:
+        refundAmount > 0
+          ? `Your account ban has been removed. ₹${refundAmount} has been credited back to your withdrawable balance.`
+          : "Your account ban has been removed by an administrator. You can now accept tasks.",
     });
 
     try {
@@ -853,8 +916,31 @@ export const liftWorkerBan = async (req, res) => {
 
     const worker = rejection.workerId;
 
-    // Lift ban + clear fine
-    await Worker.findByIdAndUpdate(worker._id, { banExpiresAt: null, outstandingFines: 0 });
+    const freshWorker = await Worker.findById(worker._id);
+    if (!freshWorker) return res.status(404).json({ message: "Worker not found" });
+
+    const banFineAmount = Number(freshWorker.banFineAmount || 0);
+    const banFinePaid = Number(freshWorker.banFinePaid || 0);
+    const remainingBanFine = Math.max(0, Math.round((banFineAmount - banFinePaid) * 100) / 100);
+    const refundAmount = Math.max(0, Math.round(banFinePaid * 100) / 100);
+
+    freshWorker.banExpiresAt = null;
+    freshWorker.outstandingFines = Math.max(0, Math.round((Number(freshWorker.outstandingFines || 0) - remainingBanFine) * 100) / 100);
+    freshWorker.walletCredit = Math.round((Number(freshWorker.walletCredit || 0) + refundAmount) * 100) / 100;
+    freshWorker.banFineAmount = 0;
+    freshWorker.banFinePaid = 0;
+    await freshWorker.save();
+
+    if (refundAmount > 0) {
+      await WalletTransaction.create({
+        userId: worker.userId._id,
+        type: "ban_refund",
+        context: "worker_wallet",
+        method: "netbanking",
+        amount: refundAmount,
+        status: "success",
+      });
+    }
 
     // Mark rejection as reviewed + ban lifted
     rejection.adminReviewed = true;
@@ -866,7 +952,10 @@ export const liftWorkerBan = async (req, res) => {
       workerId: worker._id,
       type: "ban_lifted",
       title: "Ban Lifted",
-      message: "Your ban has been reviewed and lifted by an administrator. Your fines have also been cleared.",
+      message:
+        refundAmount > 0
+          ? `Your ban has been lifted by admin. ₹${refundAmount} has been credited back to your withdrawable balance.`
+          : "Your ban has been reviewed and lifted by an administrator. Related penalties have been cleared.",
     });
 
     // Socket event

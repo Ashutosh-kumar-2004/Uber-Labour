@@ -23,6 +23,7 @@ const WorkersList = () => {
   const [banModal, setBanModal] = useState(null);
   const [banReason, setBanReason] = useState("");
   const [banDuration, setBanDuration] = useState("");
+  const [banFineAmount, setBanFineAmount] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const { showPopup } = usePopup();
 
@@ -49,7 +50,11 @@ const WorkersList = () => {
     if (!banModal) return;
     setActionLoading(true);
     try {
-      await banWorker(banModal._id, { reason: banReason, durationHours: banDuration ? parseInt(banDuration) : undefined });
+      await banWorker(banModal._id, {
+        reason: banReason,
+        durationHours: banDuration ? parseInt(banDuration) : undefined,
+        fineAmount: banFineAmount ? Number(banFineAmount) : 0,
+      });
       setBanModal(null);
       showPopup({ type: "success", title: "Worker Banned", message: "Worker has been banned." });
     } catch {
@@ -112,6 +117,7 @@ const WorkersList = () => {
                   <th className={TH}>Status</th>
                   <th className={TH}>Rating</th>
                   <th className={TH}>Completed</th>
+                  <th className={TH}>Total Earning</th>
                   <th className={TH}>Ban?</th>
                   <th className={TH}>Actions</th>
                 </tr>
@@ -124,6 +130,7 @@ const WorkersList = () => {
                     <td className={TD}><span className={badgeCls(statusBadge(w.status))}>{w.status}</span></td>
                     <td className={TD}>* {w.rating?.toFixed(1) ?? "0.0"}</td>
                     <td className={TD}>{w.completedTasks ?? 0}</td>
+                    <td className={TD}>₹{Number(w.totalEarnings || 0).toLocaleString("en-IN")}</td>
                     <td className={TD}>
                       <span className={badgeCls(isBanned(w) ? "red" : "green")}>{isBanned(w) ? "Banned" : "Active"}</span>
                     </td>
@@ -133,7 +140,7 @@ const WorkersList = () => {
                         {isBanned(w) ? (
                           <button className={btnCls("success", true)} disabled={actionLoading} onClick={() => handleUnban(w._id)}>Unban</button>
                         ) : (
-                          <button className={btnCls("danger", true)} disabled={actionLoading} onClick={() => { setBanModal(w); setBanReason(""); setBanDuration(""); }}>Ban</button>
+                          <button className={btnCls("danger", true)} disabled={actionLoading} onClick={() => { setBanModal(w); setBanReason(""); setBanDuration(""); setBanFineAmount(""); }}>Ban</button>
                         )}
                       </div>
                     </td>
@@ -160,6 +167,9 @@ const WorkersList = () => {
                   <div><span className="font-semibold text-gray-600">Email:</span> {profileData.worker.userId?.email}</div>
                   <div><span className="font-semibold text-gray-600">Rating:</span> * {profileData.worker.rating?.toFixed(1)}</div>
                   <div><span className="font-semibold text-gray-600">Tasks Completed:</span> {profileData.worker.completedTasks}</div>
+                  <div><span className="font-semibold text-gray-600">Total Earning:</span> ₹{Number(profileData.worker.totalEarnings || 0).toLocaleString("en-IN")}</div>
+                  <div><span className="font-semibold text-gray-600">Pending Amount:</span> ₹{Number(profileData.worker.outstandingFines || 0).toLocaleString("en-IN")}</div>
+                  <div><span className="font-semibold text-gray-600">Withdrawable:</span> ₹{Math.max(0, Number(profileData.worker.totalEarnings || 0) + Number(profileData.worker.walletCredit || 0) - Number(profileData.worker.totalWithdrawn || 0)).toLocaleString("en-IN")}</div>
                   <div>
                     <span className="font-semibold text-gray-600">Status:</span>{" "}
                     <span className={badgeCls(statusBadge(profileData.worker.status))}>{profileData.worker.status}</span>
@@ -195,6 +205,10 @@ const WorkersList = () => {
             <div className="mb-4">
               <label className={labelCls}>Duration (hours, leave empty for permanent)</label>
               <input className={inputCls} type="number" min={1} value={banDuration} onChange={(e) => setBanDuration(e.target.value)} placeholder="e.g. 24" />
+            </div>
+            <div className="mb-4">
+              <label className={labelCls}>Pending Amount To Add (optional)</label>
+              <input className={inputCls} type="number" min={0} value={banFineAmount} onChange={(e) => setBanFineAmount(e.target.value)} placeholder="e.g. 300" />
             </div>
             <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
               <button className={btnCls("ghost")} onClick={() => setBanModal(null)}>Cancel</button>

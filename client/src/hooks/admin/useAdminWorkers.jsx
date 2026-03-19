@@ -58,8 +58,8 @@ const useAdminWorkers = () => {
     return res.data;
   };
 
-  const banWorker = async (id, { reason, durationHours } = {}) => {
-    const res = await axiosInstance.patch(`/api/admin/workers/${id}/ban`, { reason, durationHours });
+  const banWorker = async (id, { reason, durationHours, fineAmount } = {}) => {
+    const res = await axiosInstance.patch(`/api/admin/workers/${id}/ban`, { reason, durationHours, fineAmount });
     setWorkers((prev) => prev.map((w) => (w._id === id ? res.data.worker : w)));
     return res.data;
   };

@@ -10,12 +10,12 @@ const walletTransactionSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["topup", "due_payment"],
+      enum: ["topup", "due_payment", "withdrawal", "ban_refund"],
       default: "topup",
     },
     context: {
       type: String,
-      enum: ["user_wallet", "worker_dues"],
+      enum: ["user_wallet", "worker_dues", "worker_wallet"],
       default: "user_wallet",
       index: true,
     },

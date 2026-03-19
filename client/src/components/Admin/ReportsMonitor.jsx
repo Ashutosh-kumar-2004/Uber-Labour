@@ -68,7 +68,7 @@ const ReportsMonitor = () => {
                     <td className={TD}>{r.userId?.name ?? "-"}</td>
                     <td className={TD}>{r.workerId?.userId?.name ?? "-"}</td>
                     <td className={TD}>{r.taskId?.title ?? "-"}</td>
-                    <td className={TD + " max-w-[180px] truncate"}>{r.reason}</td>
+                    <td className={TD + " max-w-45 truncate"}>{r.reason}</td>
                     <td className={TD}><span className={badgeCls(statusColor(r.status))}>{r.status}</span></td>
                     <td className={TD}>
                       <div className="flex gap-2">

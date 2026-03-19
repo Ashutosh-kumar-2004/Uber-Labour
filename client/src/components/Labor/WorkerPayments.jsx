@@ -10,8 +10,10 @@ import {
   History,
   Plus,
   ShieldAlert,
+  ArrowDownCircle,
 } from "lucide-react";
 import axiosInstance from "../../api/axios.jsx";
+import { usePopup } from "../../context/PopupContext";
 
 const PRESET_AMOUNTS = [100, 250, 500, 1000];
 const METHODS = [
@@ -24,6 +26,7 @@ const formatAmount = (value) => `₹${Number(value || 0).toLocaleString("en-IN")
 
 const WorkerPayments = () => {
   const navigate = useNavigate();
+  const { showPopup } = usePopup();
 
   const [method, setMethod] = useState("upi");
   const [amount, setAmount] = useState("");
@@ -34,9 +37,18 @@ const WorkerPayments = () => {
   const [cvv, setCvv] = useState("");
   const [bankName, setBankName] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [message, setMessage] = useState("");
   const [history, setHistory] = useState([]);
-  const [outstandingDue, setOutstandingDue] = useState(0);
+  const [summary, setSummary] = useState({
+    totalEarnings: 0,
+    totalWithdrawn: 0,
+    walletCredit: 0,
+    outstandingDue: 0,
+    withdrawableAmount: 0,
+  });
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [addAmount, setAddAmount] = useState("");
+  const [addLoading, setAddLoading] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -45,10 +57,24 @@ const WorkerPayments = () => {
         axiosInstance.get("/api/worker/wallet/history"),
       ]);
 
-      setOutstandingDue(Number(profileRes.data?.worker?.outstandingFines || 0));
+      const profileWorker = profileRes.data?.worker || {};
+      const historySummary = historyRes.data?.summary || {};
+      setSummary({
+        totalEarnings: Number(historySummary.totalEarnings ?? profileWorker.totalEarnings ?? 0),
+        totalWithdrawn: Number(historySummary.totalWithdrawn ?? profileWorker.totalWithdrawn ?? 0),
+        walletCredit: Number(historySummary.walletCredit ?? profileWorker.walletCredit ?? 0),
+        outstandingDue: Number(historySummary.outstandingDue ?? profileWorker.outstandingFines ?? 0),
+        withdrawableAmount: Number(historySummary.withdrawableAmount ?? Math.max(0, Number(profileWorker.totalEarnings || 0) + Number(profileWorker.walletCredit || 0) - Number(profileWorker.totalWithdrawn || 0))),
+      });
       setHistory(Array.isArray(historyRes.data?.transactions) ? historyRes.data.transactions : []);
     } catch {
-      setOutstandingDue(0);
+      setSummary({
+        totalEarnings: 0,
+        totalWithdrawn: 0,
+        walletCredit: 0,
+        outstandingDue: 0,
+        withdrawableAmount: 0,
+      });
       setHistory([]);
     }
   };
@@ -57,10 +83,15 @@ const WorkerPayments = () => {
     fetchData();
   }, []);
 
-  const totalPaid = useMemo(
-    () => history.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+  const totalPaidDues = useMemo(
+    () => history
+      .filter((item) => item.type === "due_payment")
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0),
     [history],
   );
+
+  const outstandingDue = Number(summary.outstandingDue || 0);
+  const withdrawableAmount = Number(summary.withdrawableAmount || 0);
 
   const resetMethodFields = () => {
     setUpiId("");
@@ -73,7 +104,6 @@ const WorkerPayments = () => {
 
   const handleMethodChange = (nextMethod) => {
     setMethod(nextMethod);
-    setMessage("");
     resetMethodFields();
   };
 
@@ -101,13 +131,84 @@ const WorkerPayments = () => {
     return "";
   };
 
+  const validateAddFunds = () => {
+    const value = Number(addAmount);
+    if (!value || value <= 0) return "Enter a valid amount to add";
+
+    if (method === "upi") {
+      if (!upiId.includes("@")) return "Enter a valid UPI ID";
+    }
+
+    if (method === "card") {
+      if (cardNumber.replace(/\s/g, "").length < 12) return "Enter a valid card number";
+      if (!cardName.trim()) return "Card holder name is required";
+      if (!/^\d{2}\/\d{2}$/.test(expiry)) return "Use expiry in MM/YY format";
+      if (!/^\d{3,4}$/.test(cvv)) return "Enter a valid CVV";
+    }
+
+    if (method === "netbanking") {
+      if (!bankName.trim()) return "Select or enter your bank name";
+    }
+
+    return "";
+  };
+
+  const handleAddFunds = async (e) => {
+    e.preventDefault();
+
+    const error = validateAddFunds();
+    if (error) {
+      showPopup({
+        type: "error",
+        title: "Validation Error",
+        message: error,
+      });
+      return;
+    }
+
+    setAddLoading(true);
+    try {
+      const { data } = await axiosInstance.post("/api/worker/wallet/add-funds", {
+        amount: Number(addAmount),
+        method,
+      });
+
+      if (data?.transaction) {
+        setHistory((prev) => [data.transaction, ...prev].slice(0, 50));
+      }
+
+      setSummary((prev) => ({
+        ...prev,
+        ...(data?.summary || {}),
+      }));
+      setAddAmount("");
+      resetMethodFields();
+      showPopup({
+        type: "success",
+        title: "Top-up Successful",
+        message: "Amount added to wallet successfully.",
+      });
+    } catch (error) {
+      showPopup({
+        type: "error",
+        title: "Top-up Failed",
+        message: error?.response?.data?.message || "Failed to add amount. Please try again.",
+      });
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
   const handlePay = async (e) => {
     e.preventDefault();
-    setMessage("");
 
     const error = validate();
     if (error) {
-      setMessage(error);
+      showPopup({
+        type: "error",
+        title: "Validation Error",
+        message: error,
+      });
       return;
     }
 
@@ -124,14 +225,80 @@ const WorkerPayments = () => {
         setHistory((prev) => [data.transaction, ...prev].slice(0, 50));
       }
 
-      setOutstandingDue(Number(data?.remainingDue || 0));
-      setMessage("Payment successful. Your dues were updated.");
+      setSummary((prev) => ({
+        ...prev,
+        ...(data?.summary || {}),
+        outstandingDue: Number(data?.remainingDue ?? data?.summary?.outstandingDue ?? prev.outstandingDue ?? 0),
+      }));
+      showPopup({
+        type: "success",
+        title: "Payment Successful",
+        message: "Your dues were updated.",
+      });
       setAmount("");
       resetMethodFields();
     } catch (error) {
-      setMessage(error?.response?.data?.message || "Payment failed. Please try again.");
+      showPopup({
+        type: "error",
+        title: "Payment Failed",
+        message: error?.response?.data?.message || "Payment failed. Please try again.",
+      });
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleWithdraw = async (e) => {
+    e.preventDefault();
+
+    const amountNumber = Number(withdrawAmount);
+    if (!amountNumber || amountNumber <= 0) {
+      showPopup({
+        type: "error",
+        title: "Validation Error",
+        message: "Enter a valid withdraw amount",
+      });
+      return;
+    }
+
+    if (amountNumber > withdrawableAmount) {
+      showPopup({
+        type: "error",
+        title: "Validation Error",
+        message: `Amount cannot exceed withdrawable balance (${formatAmount(withdrawableAmount)})`,
+      });
+      return;
+    }
+
+    setWithdrawLoading(true);
+    try {
+      const { data } = await axiosInstance.post("/api/worker/wallet/withdraw", {
+        amount: amountNumber,
+        method,
+      });
+
+      if (data?.transaction) {
+        setHistory((prev) => [data.transaction, ...prev].slice(0, 50));
+      }
+
+      setSummary((prev) => ({
+        ...prev,
+        ...(data?.summary || {}),
+      }));
+      setWithdrawAmount("");
+      showPopup({
+        type: "success",
+        title: "Withdrawal Successful",
+        message: "Withdrawal successful.",
+      });
+    } catch (error) {
+      showPopup({
+        type: "error",
+        title: "Withdrawal Failed",
+        message: error?.response?.data?.message || "Withdraw failed. Please try again.",
+      });
+    } finally {
+      setWithdrawLoading(false);
     }
   };
 
@@ -161,8 +328,12 @@ const WorkerPayments = () => {
           </div>
 
           <div className="mt-4 p-4 rounded-2xl border border-gray-100 bg-gray-50">
-            <p className="text-xs font-bold text-gray-500">Total Paid</p>
-            <p className="text-2xl font-black text-gray-900 mt-1">{formatAmount(totalPaid)}</p>
+            <p className="text-xs font-bold text-gray-500">Total Earnings</p>
+            <p className="text-2xl font-black text-green-700 mt-1">{formatAmount(summary.totalEarnings)}</p>
+            <p className="text-xs font-bold text-gray-500 mt-3">Withdrawable</p>
+            <p className="text-xl font-black text-blue-700 mt-1">{formatAmount(withdrawableAmount)}</p>
+            <p className="text-xs font-bold text-gray-500 mt-3">Total Dues Paid</p>
+            <p className="text-xl font-black text-gray-900 mt-1">{formatAmount(totalPaidDues)}</p>
           </div>
 
           <div className="mt-5">
@@ -174,7 +345,10 @@ const WorkerPayments = () => {
                 <button
                   type="button"
                   key={value}
-                  onClick={() => setAmount(String(Math.min(value, outstandingDue || value)))}
+                  onClick={() => {
+                    setAddAmount(String(value));
+                    setAmount(String(Math.min(value, outstandingDue || value)));
+                  }}
                   className="px-3 py-2 rounded-xl border border-gray-200 text-sm font-bold hover:bg-gray-100 transition-colors"
                 >
                   {formatAmount(value)}
@@ -185,6 +359,137 @@ const WorkerPayments = () => {
         </section>
 
         <section className="lg:col-span-2 bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">
+            Add Funds To Wallet
+          </p>
+
+          <form onSubmit={handleAddFunds} className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {METHODS.map(({ key, label, icon: Icon }) => (
+                <button
+                  key={`add-${key}`}
+                  type="button"
+                  onClick={() => handleMethodChange(key)}
+                  className={`px-4 py-2 rounded-full text-sm font-bold border transition-colors flex items-center gap-2 ${
+                    method === key
+                      ? "bg-black text-white border-black"
+                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-100"
+                  }`}
+                >
+                  <Icon size={15} />
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Amount</span>
+              <div className="mt-1 flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2">
+                <IndianRupee size={16} className="text-gray-400" />
+                <input
+                  type="number"
+                  min="1"
+                  value={addAmount}
+                  onChange={(e) => setAddAmount(e.target.value)}
+                  placeholder="Enter amount to add"
+                  className="w-full bg-transparent outline-none text-sm font-bold"
+                />
+              </div>
+            </label>
+
+            {method === "upi" && (
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-widest text-gray-400">UPI ID</span>
+                <input
+                  type="text"
+                  value={upiId}
+                  onChange={(e) => setUpiId(e.target.value)}
+                  placeholder="example@upi"
+                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-gray-400"
+                />
+              </label>
+            )}
+
+            {method === "card" && (
+              <>
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Card Number</span>
+                  <input
+                    type="text"
+                    value={cardNumber}
+                    onChange={(e) => setCardNumber(e.target.value)}
+                    placeholder="1234 5678 9012 3456"
+                    className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-gray-400"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Card Holder Name</span>
+                  <input
+                    type="text"
+                    value={cardName}
+                    onChange={(e) => setCardName(e.target.value)}
+                    placeholder="Name on card"
+                    className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-gray-400"
+                  />
+                </label>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Expiry (MM/YY)</span>
+                    <input
+                      type="text"
+                      value={expiry}
+                      onChange={(e) => setExpiry(e.target.value)}
+                      placeholder="07/29"
+                      className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-gray-400"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-widest text-gray-400">CVV</span>
+                    <input
+                      type="password"
+                      value={cvv}
+                      onChange={(e) => setCvv(e.target.value)}
+                      placeholder="123"
+                      className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-gray-400"
+                    />
+                  </label>
+                </div>
+              </>
+            )}
+
+            {method === "netbanking" && (
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Bank Name</span>
+                <input
+                  type="text"
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                  placeholder="Enter bank name"
+                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-gray-400"
+                />
+              </label>
+            )}
+
+            <button
+              type="submit"
+              disabled={addLoading}
+              className="mt-2 w-full rounded-xl bg-black text-white py-3 text-sm font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {addLoading ? (
+                <>Adding Amount...</>
+              ) : (
+                <>
+                  <Plus size={16} />
+                  Add Amount To Wallet
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="my-6 border-t border-gray-100" />
+
           <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">
             Clear Dues
           </p>
@@ -299,18 +604,6 @@ const WorkerPayments = () => {
               </label>
             )}
 
-            {message && (
-              <div
-                className={`rounded-xl p-3 text-sm font-semibold ${
-                  message.toLowerCase().includes("successful")
-                    ? "bg-green-50 text-green-700"
-                    : "bg-red-50 text-red-700"
-                }`}
-              >
-                {message}
-              </div>
-            )}
-
             <button
               type="submit"
               disabled={isProcessing || outstandingDue <= 0}
@@ -322,6 +615,47 @@ const WorkerPayments = () => {
                 <>
                   <Plus size={16} />
                   Pay Dues
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="my-6 border-t border-gray-100" />
+
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">
+            Withdraw Funds
+          </p>
+          <form onSubmit={handleWithdraw} className="space-y-3">
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Amount</span>
+              <div className="mt-1 flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2">
+                <IndianRupee size={16} className="text-gray-400" />
+                <input
+                  type="number"
+                  min="1"
+                  max={withdrawableAmount || undefined}
+                  value={withdrawAmount}
+                  onChange={(e) => setWithdrawAmount(e.target.value)}
+                  placeholder="Enter withdraw amount"
+                  className="w-full bg-transparent outline-none text-sm font-bold"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Available to withdraw: <span className="font-black text-gray-800">{formatAmount(withdrawableAmount)}</span>
+              </p>
+            </label>
+
+            <button
+              type="submit"
+              disabled={withdrawLoading || withdrawableAmount <= 0}
+              className="mt-2 w-full rounded-xl bg-black text-white py-3 text-sm font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {withdrawLoading ? (
+                <>Processing Withdrawal...</>
+              ) : (
+                <>
+                  <ArrowDownCircle size={16} />
+                  Withdraw Funds
                 </>
               )}
             </button>
@@ -349,6 +683,7 @@ const WorkerPayments = () => {
                 <thead>
                   <tr className="text-left text-gray-400 uppercase text-[10px] tracking-widest border-b border-gray-100">
                     <th className="py-2">Transaction ID</th>
+                    <th className="py-2">Type</th>
                     <th className="py-2">Method</th>
                     <th className="py-2">Amount</th>
                     <th className="py-2">Status</th>
@@ -359,6 +694,7 @@ const WorkerPayments = () => {
                   {history.map((txn) => (
                     <tr key={txn.id} className="border-b border-gray-50">
                       <td className="py-3 font-semibold text-gray-700">{txn.id}</td>
+                      <td className="py-3 capitalize font-semibold text-gray-700">{String(txn.type || "-").replace("_", " ")}</td>
                       <td className="py-3 capitalize font-semibold text-gray-700">{txn.method}</td>
                       <td className="py-3 font-black text-gray-900">{formatAmount(txn.amount)}</td>
                       <td className="py-3">

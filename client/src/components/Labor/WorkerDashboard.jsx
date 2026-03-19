@@ -1193,42 +1193,49 @@ const WorkerDashboard = () => {
                   Rating
                 </span>
               </div>
-              <h2 className="text-4xl font-black tracking-tighter">
-                {worker?.rating || "N/A"}
+              <h2 className="text-4xl font-black tracking-tighter flex items-center gap-2">
+                <Star size={28} className="text-amber-500" fill="currentColor" />
+                {typeof worker?.rating === "number" ? worker.rating.toFixed(1) : "N/A"}
+                <span className="text-sm font-bold text-gray-400">/ 5</span>
               </h2>
+              <div className="flex items-center gap-1 mt-2">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <Star
+                    key={value}
+                    size={14}
+                    className={value <= Math.round(Number(worker?.rating || 0)) ? "text-amber-500" : "text-gray-300"}
+                    fill={value <= Math.round(Number(worker?.rating || 0)) ? "currentColor" : "none"}
+                  />
+                ))}
+              </div>
               <p className="text-gray-500 text-xs mt-2 font-medium">
                 {worker?.completedTasks || 0} Completed Tasks
               </p>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-              <div className="p-4 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50 cursor-pointer group">
-                <span className="text-xs font-bold uppercase tracking-widest">
-                  Withdraw Funds
-                </span>
-                <ArrowUpRight
-                  size={14}
-                  className="text-gray-300 group-hover:text-black transition-colors"
-                />
+            <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Total Earnings</p>
+                <p className="text-2xl font-black text-green-700 mt-1">₹{Number(worker?.totalEarnings || 0).toLocaleString("en-IN")}</p>
               </div>
-              <div className="p-4 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50 cursor-pointer group">
-                <span className="text-xs font-bold uppercase tracking-widest">
-                  My Certifications
-                </span>
-                <ArrowUpRight
-                  size={14}
-                  className="text-gray-300 group-hover:text-black transition-colors"
-                />
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Pending Amount</p>
+                <p className="text-2xl font-black text-amber-700 mt-1">₹{Number(worker?.outstandingFines || 0).toLocaleString("en-IN")}</p>
               </div>
-              <div className="p-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer group">
-                <span className="text-xs font-bold uppercase tracking-widest">
-                  Help & Safety
-                </span>
-                <ArrowUpRight
-                  size={14}
-                  className="text-gray-300 group-hover:text-black transition-colors"
-                />
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Withdrawable</p>
+                <p className="text-2xl font-black text-blue-700 mt-1">
+                  ₹{Math.max(0, Number(worker?.totalEarnings || 0) + Number(worker?.walletCredit || 0) - Number(worker?.totalWithdrawn || 0)).toLocaleString("en-IN")}
+                </p>
               </div>
+
+              <button
+                type="button"
+                onClick={() => navigate("/worker/payments")}
+                className="w-full bg-black text-white py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+              >
+                Open Payments / Withdraw
+              </button>
             </div>
           </div>
         </div>

@@ -1,12 +1,15 @@
 import { useSelector } from "react-redux";
 import { useState } from "react";
 import useAdminPlatformFee from "../../hooks/admin/useAdminPlatformFee";
+import useAdminStats from "../../hooks/admin/useAdminStats";
 import { inputCls, labelCls, btnCls } from "./adminUtils";
 import { usePopup } from "../../context/PopupContext";
 
 const PlatformFeeSettings = () => {
   const { loading, saving, error, saveFee } = useAdminPlatformFee();
   const feePercent = useSelector((s) => s.admin.feePercent);
+  const stats = useSelector((s) => s.admin.stats);
+  useAdminStats();
   const [inputVal, setInputVal] = useState("");
   const { showPopup } = usePopup();
 
@@ -38,6 +41,8 @@ const PlatformFeeSettings = () => {
   if (error)   return <div className="text-center py-16 text-red-500 text-sm">{error}</div>;
 
   const workerPct = feePercent != null ? 100 - feePercent : null;
+  const platformEarnings = Number(stats?.finance?.platformEarnings || 0);
+  const completedTasksCount = Number(stats?.finance?.completedTasksCount || 0);
 
   return (
     <div>
@@ -58,6 +63,12 @@ const PlatformFeeSettings = () => {
             </div>
           </div>
         )}
+
+        <div className="bg-amber-50 rounded-xl p-5 mb-6 border border-amber-100">
+          <p className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-2">Platform Fee Earnings</p>
+          <p className="text-3xl font-black text-amber-700">₹{platformEarnings.toLocaleString("en-IN")}</p>
+          <p className="text-xs text-amber-600 mt-1">From {completedTasksCount} completed tasks</p>
+        </div>
 
         <form onSubmit={handleSave}>
           <div className="mb-4">

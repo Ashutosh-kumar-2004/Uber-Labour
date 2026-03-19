@@ -52,6 +52,7 @@ const AdminDashboard = () => {
   const t = stats?.tasks?.byStatus ?? {};
   const w = stats?.workers ?? {};
   const u = stats?.users ?? {};
+  const f = stats?.finance ?? {};
 
   const taskRows = Object.entries(t).map(([status, count]) => ({
     label: status, value: count, color: COLOR_MAP[status] ?? "gray",
@@ -76,6 +77,12 @@ const AdminDashboard = () => {
         <StatCard label="Active Tasks"      value={(t.assigned ?? 0) + (t.inProgress ?? 0) + (t.arrived ?? 0)}  accent="#06b6d4" />
         <StatCard label="Completed"         value={t.completed ?? 0}                                              accent="#16a34a" />
         <StatCard label="Pending Tasks"     value={t.pending ?? 0}                                                accent="#64748b" />
+        <StatCard
+          label="Platform Fee Earned"
+          value={`₹${Number(f.platformEarnings || 0).toLocaleString("en-IN")}`}
+          sub={`${f.completedTasksCount ?? 0} completed tasks`}
+          accent="#0ea5e9"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

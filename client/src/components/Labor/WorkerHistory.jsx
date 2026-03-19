@@ -53,7 +53,7 @@ const calcDuration = (start, end) => {
 
 const WorkerHistory = () => {
   const navigate = useNavigate();
-  const { tasks, loading, error, hasMore, total, fetchHistory, loadMore } =
+  const { tasks, loading, error, hasMore, total, stats, fetchHistory, loadMore } =
     useWorkerHistory();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -116,6 +116,21 @@ const WorkerHistory = () => {
               </span>
             </div>
           )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="bg-white rounded-2xl border border-gray-200 p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Total Earnings</p>
+            <p className="text-2xl font-black text-green-700 mt-1">₹{Number(stats?.totalEarnings || 0).toLocaleString("en-IN")}</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200 p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Total Withdrawn</p>
+            <p className="text-2xl font-black text-gray-900 mt-1">₹{Number(stats?.totalWithdrawn || 0).toLocaleString("en-IN")}</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200 p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Withdrawable</p>
+            <p className="text-2xl font-black text-blue-700 mt-1">₹{Number(stats?.withdrawableAmount || 0).toLocaleString("en-IN")}</p>
+          </div>
         </div>
 
         {/* Search bar */}
@@ -205,6 +220,8 @@ const WorkerHistory = () => {
             }
 
             return filtered.map((task) => {
+            const platformFeePercent = typeof task.platformFeePercent === "number" ? task.platformFeePercent : 10;
+            const workerEarned = Math.round((task.price || 0) * ((100 - platformFeePercent) / 100));
             const duration = calcDuration(task.inProgressAt, task.completedAt);
             return (
               <div
@@ -241,7 +258,7 @@ const WorkerHistory = () => {
                   <Detail
                     icon={<IndianRupee size={13} className="text-gray-400" />}
                     label="Earned"
-                    value={`₹${task.price}`}
+                    value={`₹${workerEarned}`}
                     valueClass="text-green-700 font-black text-base"
                   />
                   <Detail

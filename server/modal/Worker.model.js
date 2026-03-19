@@ -78,6 +78,26 @@ const workerSchema = new mongoose.Schema(
     type: Number,
     default: 0
   },
+  totalEarnings: {
+    type: Number,
+    default: 0
+  },
+  totalWithdrawn: {
+    type: Number,
+    default: 0
+  },
+  walletCredit: {
+    type: Number,
+    default: 0
+  },
+  banFineAmount: {
+    type: Number,
+    default: 0
+  },
+  banFinePaid: {
+    type: Number,
+    default: 0
+  },
 
   /* ── Real-Time Tracking ───────────────────── */
   workerLocation: {

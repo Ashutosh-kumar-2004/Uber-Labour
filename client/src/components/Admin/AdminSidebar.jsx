@@ -2,18 +2,19 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const navItems = [
-  { to: "/admin",              label: "Dashboard",     icon: "", end: true },
-  { to: "/admin/workers",      label: "Verification",  icon: "", end: true },
-  { to: "/admin/workers/all",  label: "All Workers",   icon: "" },
-  { to: "/admin/users",        label: "Users",         icon: "" },
-  { to: "/admin/tasks",        label: "Tasks",         icon: "" },
-  { to: "/admin/categories",   label: "Categories",    icon: "" },
-  { to: "/admin/reviews",      label: "Reviews",       icon: "" },
-  { to: "/admin/reports",      label: "Reports",       icon: "" },
-  { to: "/admin/rejections",   label: "Rejections",    icon: "" },
-  { to: "/admin/finance",      label: "Finance",       icon: "" },
-  { to: "/admin/worker-map",   label: "Worker Map",    icon: "📍" },
-  { to: "/admin/task-density", label: "Task Density",  icon: "🗺️" },
+  { to: "/admin", label: "Dashboard", end: true },
+  { to: "/admin/profile", label: "Profile" },
+  { to: "/admin/workers", label: "Verification", end: true },
+  { to: "/admin/workers/all", label: "All Workers" },
+  { to: "/admin/users", label: "Users" },
+  { to: "/admin/tasks", label: "Tasks" },
+  { to: "/admin/categories", label: "Categories" },
+  { to: "/admin/reviews", label: "Reviews" },
+  { to: "/admin/reports", label: "Reports" },
+  { to: "/admin/rejections", label: "Rejections" },
+  { to: "/admin/finance", label: "Finance" },
+  { to: "/admin/worker-map", label: "Worker Map" },
+  { to: "/admin/task-density", label: "Task Density" },
 ];
 
 const AdminSidebar = () => {
@@ -46,7 +47,6 @@ const AdminSidebar = () => {
                 : "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
             }
           >
-            <span className="text-base leading-none">{icon}</span>
             <span>{label}</span>
           </NavLink>
         ))}

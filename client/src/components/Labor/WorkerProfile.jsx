@@ -3,18 +3,20 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import useWorkerProfile from "../../hooks/worker/useWorkerProfile";
 import { usePopup } from "../../context/PopupContext.jsx";
+import axiosInstance from "../../api/axios.jsx";
 import {
   ArrowLeft,
   Save,
   CheckCircle,
   Mail,
   Phone,
-  FileImage,
+  Wallet,
   Shield,
   ExternalLink,
   User,
   Upload,
   Trash2,
+  Lock,
 } from "lucide-react";
 
 const WorkerProfile = () => {
@@ -24,6 +26,7 @@ const WorkerProfile = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("contact");
   const [saving, setSaving] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
   const [profilePreview, setProfilePreview] = useState("");
   const [profileFile, setProfileFile] = useState(null);
   const [removeProfileImage, setRemoveProfileImage] = useState(false);
@@ -32,6 +35,11 @@ const WorkerProfile = () => {
     email: "",
     contactNumber: "",
     address: "",
+  });
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   });
 
   const profileUser = profile?.user || authUser;
@@ -70,6 +78,11 @@ const WorkerProfile = () => {
   const onChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const onPasswordChange = (event) => {
+    const { name, value } = event.target;
+    setPasswordForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const onProfileFileChange = (event) => {
@@ -135,6 +148,35 @@ const WorkerProfile = () => {
       showPopup({ type: "error", title: "Update Failed", message: error.response?.data?.message || "Could not update profile" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async (event) => {
+    event.preventDefault();
+
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      showPopup({ type: "error", title: "Missing Fields", message: "Fill all password fields." });
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      showPopup({ type: "error", title: "Mismatch", message: "New password and confirm password must match." });
+      return;
+    }
+
+    setSavingPassword(true);
+    try {
+      await axiosInstance.post("/api/auth/change-password", {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      showPopup({ type: "success", title: "Password Updated", message: "Your password was changed successfully." });
+    } catch (error) {
+      showPopup({ type: "error", title: "Update Failed", message: error.response?.data?.message || "Could not change password" });
+    } finally {
+      setSavingPassword(false);
     }
   };
 
@@ -239,6 +281,28 @@ const WorkerProfile = () => {
                 >
                   Documents
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("wallet")}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    activeTab === "wallet"
+                      ? "bg-black text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  Wallet
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("security")}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    activeTab === "security"
+                      ? "bg-black text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  Security
+                </button>
               </div>
 
               {activeTab === "contact" ? (
@@ -319,7 +383,7 @@ const WorkerProfile = () => {
                     <Save size={14} /> {saving ? "Saving..." : "Save Changes"}
                   </button>
                 </form>
-              ) : (
+              ) : activeTab === "documents" ? (
                 <div className="space-y-4">
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">Uploaded Documents</h2>
@@ -354,6 +418,102 @@ const WorkerProfile = () => {
                     )}
                   </div>
                 </div>
+              ) : activeTab === "wallet" ? (
+                <div className="space-y-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Wallet</h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Manage pending dues and add/pay amount from your payments section.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+                    <p className="text-xs uppercase tracking-wide font-semibold text-gray-500 mb-2">Pending Amount</p>
+                    <p className="text-3xl font-black text-amber-700">₹{Number(worker?.outstandingFines || 0).toLocaleString("en-IN")}</p>
+
+                    <p className="text-xs uppercase tracking-wide font-semibold text-gray-500 mb-2 mt-4">Total Earnings</p>
+                    <p className="text-2xl font-black text-green-700">₹{Number(worker?.totalEarnings || 0).toLocaleString("en-IN")}</p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => navigate("/worker/payments")}
+                      className="inline-flex items-center gap-2 bg-black text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-zinc-800"
+                    >
+                      <Wallet size={15} /> Add Amount To Wallet
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate("/worker/payments")}
+                      className="inline-flex items-center gap-2 border border-gray-300 rounded-lg px-4 py-2 text-sm font-semibold hover:bg-gray-50"
+                    >
+                      <Wallet size={15} /> Open Payments
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleChangePassword} className="space-y-6 max-w-xl">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Change Password</h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Use a strong password with uppercase, lowercase, number and symbol.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Current Password</label>
+                    <div className="relative">
+                      <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="password"
+                        name="currentPassword"
+                        value={passwordForm.currentPassword}
+                        onChange={onPasswordChange}
+                        className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20"
+                        placeholder="Enter current password"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">New Password</label>
+                    <div className="relative">
+                      <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="password"
+                        name="newPassword"
+                        value={passwordForm.newPassword}
+                        onChange={onPasswordChange}
+                        className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20"
+                        placeholder="Enter new password"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Confirm New Password</label>
+                    <div className="relative">
+                      <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="password"
+                        name="confirmPassword"
+                        value={passwordForm.confirmPassword}
+                        onChange={onPasswordChange}
+                        className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20"
+                        placeholder="Confirm new password"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={savingPassword}
+                    className="inline-flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-zinc-800 disabled:opacity-60"
+                  >
+                    <Save size={14} /> {savingPassword ? "Updating..." : "Update Password"}
+                  </button>
+                </form>
               )}
             </section>
           </div>
