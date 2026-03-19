@@ -13,7 +13,7 @@ import {
 import Map from '../../map/User/Map';
 import useCategories from '../../hooks/useCategories';
 
-const TaskDetailsModal = ({ task, onClose, onAccept, accepting, isActiveTask, hasActiveTask, hasOutstandingFees, outstandingFeeAmount, onReject, onNavigate, onComplete, onMarkArrived, arrivedLoading, activeTaskStatus }) => {
+const TaskDetailsModal = ({ task, onClose, onAccept, accepting, isActiveTask, hasActiveTask, hasOutstandingFees, outstandingFeeAmount, onReject, onNavigate, onComplete, onMarkArrived, arrivedLoading, activeTaskStatus, onPayNow }) => {
   if (!task) return null;
 
   const { categories } = useCategories();
@@ -205,6 +205,12 @@ const TaskDetailsModal = ({ task, onClose, onAccept, accepting, isActiveTask, ha
                   className="w-full bg-amber-100 text-amber-700 py-4 rounded-xl font-black uppercase tracking-widest text-sm cursor-not-allowed flex items-center justify-center gap-3 border border-amber-200"
                 >
                   <ShieldCheck size={18} /> Clear Previous Platform Fee First
+                </button>
+                <button
+                  onClick={() => { onClose(); onPayNow && onPayNow(); }}
+                  className="w-full mt-3 bg-black text-white py-3 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-zinc-800 transition-colors"
+                >
+                  Go To Payments
                 </button>
                 <p className="text-center text-[10px] text-gray-400 font-medium mt-3">
                   Outstanding fee due: ₹{outstandingFeeAmount}

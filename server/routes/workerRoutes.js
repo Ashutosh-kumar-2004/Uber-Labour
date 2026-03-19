@@ -15,6 +15,8 @@ import {
   getWorkerPlatformFee,
   getCategories,
   getWorkerReviews,
+  payWorkerDues,
+  getWorkerPaymentHistory,
 } from "../controller/workerController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -35,6 +37,8 @@ router.post("/tasks/:taskId/location", updateWorkerLocation);
 router.post("/tasks/:taskId/arrived", markArrived);    // worker taps "I've Arrived"
 router.post("/tasks/:taskId/verify-otp", verifyOTP);   // worker submits OTP from user
 router.get("/history", getWorkerHistory);              // worker's completed task history
+router.get("/wallet/history", getWorkerPaymentHistory);
+router.post("/wallet/pay-due", payWorkerDues);
 router.get("/platform-fee", getWorkerPlatformFee);
 router.get("/categories", getCategories);               // dynamic categories for registration
 router.get("/reviews", getWorkerReviews);              // reviews received by worker

@@ -46,6 +46,16 @@ export const AuthProvider = ({ children }) => {
     dispatch(setUser(userData.user));
   };
 
+  const updateUser = (updater) => {
+    setUserState((prev) => {
+      const nextUser = typeof updater === "function" ? updater(prev) : updater;
+      if (nextUser) {
+        dispatch(setUser(nextUser));
+      }
+      return nextUser;
+    });
+  };
+
   const logout = async () => {
     try {
       await axiosInstance.post("/api/auth/logout");
@@ -56,7 +66,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, authLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, authLoading, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -10,12 +10,16 @@ import {
 	getMyReviews,
 	getUserProfile,
 	updateUserProfile,
+	topUpWallet,
+	getWalletHistory,
 } from "../controller/userController.js";
 import { getCategories } from "../controller/workerController.js";
 const router = express.Router();
 
 router.get("/profile", getUserProfile);
 router.patch("/profile", updateUserProfile);
+router.post("/wallet/topup", topUpWallet);
+router.get("/wallet/history", getWalletHistory);
 
 router.post("/create", createWork);
 router.delete("/delete/:id", deleteWork);

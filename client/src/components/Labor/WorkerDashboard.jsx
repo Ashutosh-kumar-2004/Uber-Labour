@@ -468,6 +468,7 @@ const WorkerDashboard = () => {
           setSelectedTask(null);
           setShowCompleteModal(true);
         }}
+        onPayNow={() => navigate("/worker/payments")}
         onMarkArrived={handleMarkArrived}
         arrivedLoading={arrivedLoading}
         activeTaskStatus={activeTask?.status}

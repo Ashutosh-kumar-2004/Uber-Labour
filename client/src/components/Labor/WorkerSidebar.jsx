@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Briefcase,
   History,
+  Wallet,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { icon: User,          label: "My Profile",    path: "/worker/profile" },
   { icon: History,       label: "Work History",  path: "/worker/history" },
   { icon: Star,          label: "My Reviews",    path: "/worker/reviews" },
+  { icon: Wallet,        label: "Payments",      path: "/worker/payments" },
 ];
 
 const WorkerSidebar = ({ isOpen, onClose }) => {

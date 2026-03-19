@@ -83,6 +83,7 @@ const buildAuthResponse = (user, token) => ({
     email: user.email,
     userType: user.userType,
     isVerified: user.isVerified,
+    walletBalance: user.walletBalance ?? 0,
   },
   token,
 });
@@ -146,6 +147,7 @@ export const signup = async (req, res) => {
         email: user.email,
         userType: user.userType,
         isVerified: user.isVerified,
+        walletBalance: user.walletBalance ?? 0,
       },
       token,
     });
@@ -203,6 +205,7 @@ export const login = async (req, res) => {
           email: user.email,
           userType: user.userType,
           isVerified: user.isVerified,
+          walletBalance: user.walletBalance ?? 0,
         },
         token,
       });
@@ -216,6 +219,7 @@ export const login = async (req, res) => {
         name: user.name,
         email: user.email,
         userType: user.userType,
+        walletBalance: user.walletBalance ?? 0,
       },
       token,
     });
@@ -447,6 +451,7 @@ export const getMe = async (req, res) => {
         email: user.email,
         userType: user.userType,
         isVerified: user.isVerified,
+        walletBalance: user.walletBalance ?? 0,
       },
       token,
     });

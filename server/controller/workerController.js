@@ -6,6 +6,7 @@ import Task from "../modal/user/Task.model.js";
 import Review from "../modal/Review.model.js";
 import { PlatformFee } from "../modal/PlatformFee.model.js";
 import { Category } from "../modal/user/CategorySchema.modal.js";
+import WalletTransaction from "../modal/user/WalletTransaction.model.js";
 import "../modal/TaskRejection.model.js"; // Import model to register schema
 import {
   notifyTaskAccepted,
@@ -79,6 +80,94 @@ export const getWorkerPlatformFee = async (req, res) => {
   } catch (err) {
     console.error("getWorkerPlatformFee error:", err);
     return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+export const payWorkerDues = async (req, res) => {
+  try {
+    const amount = Number(req.body?.amount);
+    const allowedMethods = ["upi", "card", "netbanking"];
+    const method = allowedMethods.includes(req.body?.method) ? req.body.method : "upi";
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ success: false, message: "Enter a valid amount" });
+    }
+
+    const worker = await Worker.findOne({ userId: req.user._id, status: "verified" });
+    if (!worker) {
+      return res.status(404).json({ success: false, message: "Worker not found" });
+    }
+
+    const outstanding = Number(worker.outstandingFines || 0);
+    if (outstanding <= 0) {
+      return res.status(400).json({ success: false, message: "No outstanding dues to clear" });
+    }
+
+    const normalizedAmount = Math.round(amount * 100) / 100;
+    if (normalizedAmount > outstanding) {
+      return res.status(400).json({
+        success: false,
+        message: `Amount exceeds outstanding dues. Maximum payable is ₹${outstanding}`,
+      });
+    }
+
+    worker.outstandingFines = Math.max(0, Math.round((outstanding - normalizedAmount) * 100) / 100);
+    await worker.save();
+
+    const transaction = await WalletTransaction.create({
+      userId: req.user._id,
+      type: "due_payment",
+      context: "worker_dues",
+      method,
+      amount: normalizedAmount,
+      status: "success",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Dues payment successful",
+      paidAmount: normalizedAmount,
+      remainingDue: worker.outstandingFines,
+      transaction: {
+        id: transaction._id,
+        type: transaction.type,
+        method: transaction.method,
+        amount: transaction.amount,
+        status: transaction.status,
+        date: transaction.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("payWorkerDues error:", error);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+export const getWorkerPaymentHistory = async (req, res) => {
+  try {
+    const transactions = await WalletTransaction.find({
+      userId: req.user._id,
+      type: "due_payment",
+      context: "worker_dues",
+    })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      transactions: transactions.map((txn) => ({
+        id: txn._id,
+        type: txn.type,
+        method: txn.method,
+        amount: txn.amount,
+        status: txn.status,
+        date: txn.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error("getWorkerPaymentHistory error:", error);
+    return res.status(500).json({ success: false, message: "Server Error" });
   }
 };
 

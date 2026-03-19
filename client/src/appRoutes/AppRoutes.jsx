@@ -16,6 +16,7 @@ const WorkerDashboard = lazy(() => import("../components/Labor/WorkerDashboard")
 const WorkerProfile = lazy(() => import("../components/Labor/WorkerProfile"));
 const WorkerHistory = lazy(() => import("../components/Labor/WorkerHistory"));
 const WorkerReviews = lazy(() => import("../components/Labor/WorkerReviews"));
+const WorkerPayments = lazy(() => import("../components/Labor/WorkerPayments"));
 const MyReviews = lazy(() => import("../components/User/MyReviews"));
 
 /* Admin pages */
@@ -83,6 +84,7 @@ const AppRoutes = () => {
         <Route path="/worker/profile"   element={<ProtectedRoute><WorkerProfile /></ProtectedRoute>} />
         <Route path="/worker/history"   element={<ProtectedRoute><WorkerHistory /></ProtectedRoute>} />
         <Route path="/worker/reviews"   element={<ProtectedRoute><WorkerReviews /></ProtectedRoute>} />
+        <Route path="/worker/payments" element={<ProtectedRoute><WorkerPayments /></ProtectedRoute>} />
 
         {/* Admin routes */}
         <Route

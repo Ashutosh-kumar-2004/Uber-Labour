@@ -6,6 +6,7 @@ import Review from "../modal/Review.model.js";
 import Report from "../modal/Report.model.js";
 import { PlatformFee } from "../modal/PlatformFee.model.js";
 import { Category } from "../modal/user/CategorySchema.modal.js";
+import WalletTransaction from "../modal/user/WalletTransaction.model.js";
 import {
   ACTIVE_STATUSES,
   CANCELLATION_FINE,
@@ -86,6 +87,81 @@ export const updateUserProfile = async (req, res) => {
   } catch (error) {
     console.error("updateUserProfile error:", error);
     return res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+export const topUpWallet = async (req, res) => {
+  try {
+    const amount = Number(req.body?.amount);
+    const allowedMethods = ["upi", "card", "netbanking"];
+    const method = allowedMethods.includes(req.body?.method) ? req.body.method : "upi";
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ success: false, message: "Enter a valid amount" });
+    }
+
+    const normalizedAmount = Math.round(amount * 100) / 100;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { $inc: { walletBalance: normalizedAmount } },
+      { new: true },
+    ).select("walletBalance");
+
+    const transaction = await WalletTransaction.create({
+      userId: req.user._id,
+      type: "topup",
+      context: "user_wallet",
+      method,
+      amount: normalizedAmount,
+      status: "success",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Wallet topped up successfully",
+      walletBalance: updatedUser?.walletBalance ?? 0,
+      addedAmount: normalizedAmount,
+      transaction: {
+        id: transaction._id,
+        type: transaction.type,
+        method: transaction.method,
+        amount: transaction.amount,
+        status: transaction.status,
+        date: transaction.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("topUpWallet error:", error);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+export const getWalletHistory = async (req, res) => {
+  try {
+    const transactions = await WalletTransaction.find({
+      userId: req.user._id,
+      type: "topup",
+      context: "user_wallet",
+    })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      transactions: transactions.map((txn) => ({
+        id: txn._id,
+        type: txn.type,
+        method: txn.method,
+        amount: txn.amount,
+        status: txn.status,
+        date: txn.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error("getWalletHistory error:", error);
+    return res.status(500).json({ success: false, message: "Server Error" });
   }
 };
 

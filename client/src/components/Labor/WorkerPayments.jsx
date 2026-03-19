@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
-  Wallet,
   IndianRupee,
   CreditCard,
   Landmark,
@@ -10,11 +9,11 @@ import {
   CheckCircle2,
   History,
   Plus,
+  ShieldAlert,
 } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
 import axiosInstance from "../../api/axios.jsx";
 
-const PRESET_AMOUNTS = [199, 499, 999, 1999];
+const PRESET_AMOUNTS = [100, 250, 500, 1000];
 const METHODS = [
   { key: "upi", label: "UPI", icon: Smartphone },
   { key: "card", label: "Card", icon: CreditCard },
@@ -23,9 +22,8 @@ const METHODS = [
 
 const formatAmount = (value) => `₹${Number(value || 0).toLocaleString("en-IN")}`;
 
-const UserPayments = () => {
+const WorkerPayments = () => {
   const navigate = useNavigate();
-  const { user, updateUser } = useAuth();
 
   const [method, setMethod] = useState("upi");
   const [amount, setAmount] = useState("");
@@ -38,23 +36,30 @@ const UserPayments = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState("");
   const [history, setHistory] = useState([]);
+  const [outstandingDue, setOutstandingDue] = useState(0);
+
+  const fetchData = async () => {
+    try {
+      const [profileRes, historyRes] = await Promise.all([
+        axiosInstance.get("/api/worker/profile"),
+        axiosInstance.get("/api/worker/wallet/history"),
+      ]);
+
+      setOutstandingDue(Number(profileRes.data?.worker?.outstandingFines || 0));
+      setHistory(Array.isArray(historyRes.data?.transactions) ? historyRes.data.transactions : []);
+    } catch {
+      setOutstandingDue(0);
+      setHistory([]);
+    }
+  };
 
   useEffect(() => {
-    const fetchWalletHistory = async () => {
-      try {
-        const { data } = await axiosInstance.get("/api/user/wallet/history");
-        setHistory(Array.isArray(data?.transactions) ? data.transactions : []);
-      } catch {
-        setHistory([]);
-      }
-    };
-
-    fetchWalletHistory();
+    fetchData();
   }, []);
 
-  const totalTopups = useMemo(
+  const totalPaid = useMemo(
     () => history.reduce((sum, item) => sum + Number(item.amount || 0), 0),
-    [history]
+    [history],
   );
 
   const resetMethodFields = () => {
@@ -73,8 +78,10 @@ const UserPayments = () => {
   };
 
   const validate = () => {
-    const topup = Number(amount);
-    if (!topup || topup <= 0) return "Enter a valid amount";
+    const payAmount = Number(amount);
+
+    if (!payAmount || payAmount <= 0) return "Enter a valid amount";
+    if (payAmount > outstandingDue) return `Amount cannot exceed due amount (${formatAmount(outstandingDue)})`;
 
     if (method === "upi") {
       if (!upiId.includes("@")) return "Enter a valid UPI ID";
@@ -104,23 +111,21 @@ const UserPayments = () => {
       return;
     }
 
-    const topup = Number(amount);
+    const payAmount = Number(amount);
     setIsProcessing(true);
 
     try {
-      const { data } = await axiosInstance.post("/api/user/wallet/topup", {
-        amount: topup,
+      const { data } = await axiosInstance.post("/api/worker/wallet/pay-due", {
+        amount: payAmount,
         method,
       });
 
       if (data?.transaction) {
         setHistory((prev) => [data.transaction, ...prev].slice(0, 50));
       }
-      updateUser((prev) => ({
-        ...(prev || {}),
-        walletBalance: Number(data?.walletBalance || 0),
-      }));
-      setMessage("Payment successful. Wallet top-up recorded.");
+
+      setOutstandingDue(Number(data?.remainingDue || 0));
+      setMessage("Payment successful. Your dues were updated.");
       setAmount("");
       resetMethodFields();
     } catch (error) {
@@ -134,30 +139,30 @@ const UserPayments = () => {
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4 sticky top-0 z-50">
         <button
-          onClick={() => navigate("/user")}
+          onClick={() => navigate("/worker/dashboard")}
           className="p-2 hover:bg-gray-100 rounded-full transition-colors"
         >
           <ArrowLeft size={20} className="text-gray-600" />
         </button>
-        <span className="text-lg font-black uppercase tracking-tight">Payments</span>
+        <span className="text-lg font-black uppercase tracking-tight">Worker Payments</span>
       </nav>
 
       <main className="max-w-5xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
         <section className="lg:col-span-1 bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
           <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
-            Wallet Summary
+            Dues Summary
           </p>
-          <div className="rounded-2xl bg-linear-to-r from-zinc-900 to-zinc-700 p-4 text-white">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-zinc-300 font-bold">
-              <Wallet size={14} />
-              Current Wallet
+          <div className="rounded-2xl bg-linear-to-r from-red-700 to-red-500 p-4 text-white">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-red-100 font-bold">
+              <ShieldAlert size={14} />
+              Outstanding Due
             </div>
-            <p className="text-3xl font-black mt-2">{formatAmount(user?.walletBalance ?? 0)}</p>
+            <p className="text-3xl font-black mt-2">{formatAmount(outstandingDue)}</p>
           </div>
 
           <div className="mt-4 p-4 rounded-2xl border border-gray-100 bg-gray-50">
-            <p className="text-xs font-bold text-gray-500">Total Top-ups</p>
-            <p className="text-2xl font-black text-gray-900 mt-1">{formatAmount(totalTopups)}</p>
+            <p className="text-xs font-bold text-gray-500">Total Paid</p>
+            <p className="text-2xl font-black text-gray-900 mt-1">{formatAmount(totalPaid)}</p>
           </div>
 
           <div className="mt-5">
@@ -169,10 +174,10 @@ const UserPayments = () => {
                 <button
                   type="button"
                   key={value}
-                  onClick={() => setAmount(String(value))}
+                  onClick={() => setAmount(String(Math.min(value, outstandingDue || value)))}
                   className="px-3 py-2 rounded-xl border border-gray-200 text-sm font-bold hover:bg-gray-100 transition-colors"
                 >
-                  + {formatAmount(value)}
+                  {formatAmount(value)}
                 </button>
               ))}
             </div>
@@ -181,7 +186,7 @@ const UserPayments = () => {
 
         <section className="lg:col-span-2 bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
           <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">
-            Add Money
+            Clear Dues
           </p>
 
           <div className="flex flex-wrap gap-2 mb-4">
@@ -210,6 +215,7 @@ const UserPayments = () => {
                 <input
                   type="number"
                   min="1"
+                  max={outstandingDue || undefined}
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="Enter amount"
@@ -307,7 +313,7 @@ const UserPayments = () => {
 
             <button
               type="submit"
-              disabled={isProcessing}
+              disabled={isProcessing || outstandingDue <= 0}
               className="mt-2 w-full rounded-xl bg-black text-white py-3 text-sm font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isProcessing ? (
@@ -315,7 +321,7 @@ const UserPayments = () => {
               ) : (
                 <>
                   <Plus size={16} />
-                  Add To Wallet
+                  Pay Dues
                 </>
               )}
             </button>
@@ -335,7 +341,7 @@ const UserPayments = () => {
 
           {history.length === 0 ? (
             <div className="mt-4 rounded-2xl border border-dashed border-gray-300 p-8 text-center text-gray-400 text-sm font-semibold">
-              No payments yet. Your successful payments will appear here.
+              No dues payments yet.
             </div>
           ) : (
             <div className="mt-4 overflow-x-auto">
@@ -376,4 +382,4 @@ const UserPayments = () => {
   );
 };
 
-export default UserPayments;
+export default WorkerPayments;
