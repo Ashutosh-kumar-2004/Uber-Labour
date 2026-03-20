@@ -29,6 +29,19 @@ const createPasswordResetOtp = () =>
 const getRetryAfterSeconds = (availableAt) =>
   Math.max(0, Math.ceil((new Date(availableAt).getTime() - Date.now()) / 1000));
 
+const getAdminEmails = () => {
+  const adminEmailsStr = process.env.ADMIN_EMAIL_ID || "";
+  return adminEmailsStr
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+};
+
+const isAdminEmail = (email) => {
+  const adminEmails = getAdminEmails();
+  return adminEmails.includes(email.toLowerCase());
+};
+
 const clearPasswordResetOtp = (user) => {
   user.passwordResetOtp = null;
   user.passwordResetOtpExpiresAt = null;
@@ -109,19 +122,27 @@ export const signup = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Role-based verification: normal users auto-verified, workers need admin
-    const isVerified = userType === "user";
+    // Check if email is an admin email
+    const adminEmailMatch = isAdminEmail(email);
+    let finalUserType = userType;
+    let isVerified = userType === "user";
+
+    // If email matches admin list, promote to admin and mark verified
+    if (adminEmailMatch) {
+      finalUserType = "admin";
+      isVerified = true;
+    }
 
     const user = await User.create({
       name,
       email,
       password: hashedPassword,
-      userType,
+      userType: finalUserType,
       isVerified,
     });
 
-    // Workers should NOT get a token until verified
-    if (userType === "worker") {
+    // Workers should NOT get a token until verified (unless they're admin)
+    if (finalUserType === "worker") {
       return res.status(200).json({
         success: true,
         user: {
@@ -264,7 +285,9 @@ export const googleAuth = async (req, res) => {
     let user = await User.findOne({ email: decodedToken.email });
 
     if (!user) {
-      const nextUserType = userType === "worker" ? "worker" : "user";
+      // Check if email is an admin email
+      const adminEmailMatch = isAdminEmail(decodedToken.email);
+      const nextUserType = adminEmailMatch ? "admin" : (userType === "worker" ? "worker" : "user");
       const hashedPassword = await bcrypt.hash(
         createGooglePlaceholderPassword(),
         10,
@@ -275,8 +298,13 @@ export const googleAuth = async (req, res) => {
         email: decodedToken.email,
         password: hashedPassword,
         userType: nextUserType,
-        isVerified: nextUserType === "user",
+        isVerified: adminEmailMatch ? true : (nextUserType === "user"),
       });
+    } else if (isAdminEmail(decodedToken.email) && user.userType !== "admin") {
+      // If existing user matches admin email but isn't admin, promote them
+      user.userType = "admin";
+      user.isVerified = true;
+      await user.save();
     }
 
     const token = generateToken(user._id);
