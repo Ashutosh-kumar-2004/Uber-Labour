@@ -97,10 +97,10 @@ export const initSocketServer = (io) => {
           return socket.emit("error", { message: "Invalid coordinates" });
         }
 
-        /* Rate-limit: max 1 update per 1 second per socket */
+        /* Rate-limit: max 1 update per 4 seconds per socket */
         const now = Date.now();
         const last = lastUpdateAt.get(socket.id) || 0;
-        if (now - last < 1000) return;
+        if (now - last < 4000) return;
         lastUpdateAt.set(socket.id, now);
 
         /* Find worker by userId */

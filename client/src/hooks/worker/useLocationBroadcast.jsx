@@ -56,7 +56,7 @@ const useLocationBroadcast = (taskId) => {
   const prevRef = useRef(null); // { lat, lng, ts }
   const watchIdRef = useRef(null);
   const lastEmitRef = useRef(0);
-  const INTERVAL_MS = 1000;
+  const INTERVAL_MS = 4000;
 
   const emit = useCallback(
     async (lat, lng) => {
