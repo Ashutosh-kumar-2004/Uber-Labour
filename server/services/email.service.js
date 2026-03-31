@@ -8,7 +8,45 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
+  connectionUrl: process.env.EMAIL_HOST ? undefined : "smtp://smtp.gmail.com",
+  logger: process.env.NODE_ENV === "development",
+  debug: process.env.NODE_ENV === "development",
 });
+
+/**
+ * Verify email transporter connection at startup
+ */
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("[Email Config Error]", error.message);
+  } else {
+    console.log("[Email Service] Ready to send emails");
+  }
+});
+
+/**
+ * Helper function to send email with retry logic
+ */
+const sendEmailWithRetry = async (mailOptions, retries = 2) => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const info = await transporter.sendMail(mailOptions);
+      console.log(`[Email Sent] Message ID: ${info.messageId}, To: ${mailOptions.to}`);
+      return info;
+    } catch (error) {
+      console.error(
+        `[Email Error - Attempt ${attempt}/${retries}] To: ${mailOptions.to}, Error: ${error.message}`
+      );
+
+      if (attempt === retries) {
+        throw error; // Throw on final attempt
+      }
+
+      // Wait before retrying (exponential backoff: 1s, 2s)
+      await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+    }
+  }
+};
 
 /**
  * Send the OTP to the job-poster (user).
@@ -91,7 +129,7 @@ export async function sendOTPEmail({ toEmail, userName, otp, taskTitle, workerNa
   </body>
   </html>`;
 
-  await transporter.sendMail({
+  return sendEmailWithRetry({
     from,
     to: toEmail,
     subject: `🔑 Your Worker Arrival OTP: ${otp} — ${taskTitle}`,
@@ -159,7 +197,7 @@ export async function sendPasswordResetOTPEmail({
   </body>
   </html>`;
 
-  await transporter.sendMail({
+  return sendEmailWithRetry({
     from,
     to: toEmail,
     subject: `🔐 Password reset OTP: ${otp}`,
@@ -198,7 +236,7 @@ export async function sendWorkerApprovedEmail({ toEmail, workerName }) {
     </table>
   </body></html>`;
 
-  await transporter.sendMail({
+  return sendEmailWithRetry({
     from,
     to: toEmail,
     subject: "✅ Your Workify Pro registration has been approved!",
@@ -239,7 +277,7 @@ export async function sendWorkerRejectedEmail({ toEmail, workerName, reason, ban
     </table>
   </body></html>`;
 
-  await transporter.sendMail({
+  return sendEmailWithRetry({
     from,
     to: toEmail,
     subject: "❌ Your Workify Pro registration was not approved",
@@ -277,7 +315,7 @@ export async function sendBanLiftedEmail({ toEmail, workerName }) {
     </table>
   </body></html>`;
 
-  await transporter.sendMail({
+  return sendEmailWithRetry({
     from,
     to: toEmail,
     subject: "🔓 Your Workify Pro account ban has been lifted",

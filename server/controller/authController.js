@@ -19,6 +19,8 @@ const PASSWORD_REGEX =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
 const RESET_OTP_EXPIRY_MS = 15 * 60 * 1000;
 const RESET_OTP_RESEND_MS = 60 * 1000;
+const OTP_BCRYPT_ROUNDS = 6;           // Low rounds for short-lived OTPs (15 min)
+const PASSWORD_BCRYPT_ROUNDS = 10;     // High rounds for long-term passwords
 
 const createGooglePlaceholderPassword = () =>
   `GoogleAuth@${Math.random().toString(36).slice(2)}A1`;
@@ -70,16 +72,27 @@ const issuePasswordResetOtp = async (user, { enforceCooldown = true } = {}) => {
   }
 
   const otp = createPasswordResetOtp();
-  user.passwordResetOtp = await bcrypt.hash(otp, 10);
+  const hashStart = Date.now();
+  user.passwordResetOtp = await bcrypt.hash(otp, OTP_BCRYPT_ROUNDS);  // 6 rounds = ~10-20ms
+  const hashTime = Date.now() - hashStart;
+  
   user.passwordResetOtpSentAt = new Date(now);
   user.passwordResetOtpExpiresAt = new Date(now + RESET_OTP_EXPIRY_MS);
+  
+  const saveStart = Date.now();
   await user.save();
+  const saveTime = Date.now() - saveStart;
+  
+  console.log(`[OTP Performance] Hash: ${hashTime}ms, DB Save: ${saveTime}ms`);
 
-  await sendPasswordResetOTPEmail({
+  // Send email asynchronously without blocking the response
+  sendPasswordResetOTPEmail({
     toEmail: user.email,
     userName: user.name,
     otp,
     expiresInMinutes: 15,
+  }).catch((error) => {
+    console.error(`[OTP Email Error] Failed to send OTP email to ${user.email}:`, error.message);
   });
 
   return {
@@ -120,7 +133,7 @@ export const signup = async (req, res) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, PASSWORD_BCRYPT_ROUNDS);
 
     // Check if email is an admin email
     const adminEmailMatch = isAdminEmail(email);
@@ -320,6 +333,7 @@ export const googleAuth = async (req, res) => {
 };
 
 export const requestPasswordResetOtp = async (req, res) => {
+  const reqStart = Date.now();
   try {
     const { email } = req.body;
 
@@ -330,9 +344,11 @@ export const requestPasswordResetOtp = async (req, res) => {
       });
     }
 
+    const findStart = Date.now();
     const user = await User.findOne({ email }).select(
       "+passwordResetOtp +passwordResetOtpExpiresAt +passwordResetOtpSentAt",
     );
+    const findTime = Date.now() - findStart;
 
     if (!user) {
       return res.status(404).json({
@@ -341,7 +357,11 @@ export const requestPasswordResetOtp = async (req, res) => {
       });
     }
 
+    const issueStart = Date.now();
     const resetMeta = await issuePasswordResetOtp(user);
+    const issueTime = Date.now() - issueStart;
+
+    console.log(`[Request OTP] Find User: ${findTime}ms, Issue OTP: ${issueTime}ms, Total: ${Date.now() - reqStart}ms`);
 
     return res.status(200).json({
       success: true,
@@ -349,6 +369,7 @@ export const requestPasswordResetOtp = async (req, res) => {
       ...resetMeta,
     });
   } catch (error) {
+    console.error(`[Request OTP Error] Total time: ${Date.now() - reqStart}ms, Error: ${error.message}`);
     return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || "Failed to send OTP",
@@ -445,7 +466,7 @@ export const resetPasswordWithOtp = async (req, res) => {
       });
     }
 
-    user.password = await bcrypt.hash(password, 10);
+    user.password = await bcrypt.hash(password, PASSWORD_BCRYPT_ROUNDS);
     clearPasswordResetOtp(user);
     await user.save();
 
