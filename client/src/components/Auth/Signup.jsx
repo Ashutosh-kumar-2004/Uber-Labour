@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { usePopup } from "../../context/PopupContext.jsx";
 import useGoogleAuth from "../../hooks/auth/useGoogleAuth";
 import useSignup from "../../hooks/auth/useSignup";
@@ -253,12 +253,12 @@ export default function SignupPage() {
             {/* Already have account */}
             <p className="text-center text-sm text-gray-600 mt-4">
               Already have an account?{" "}
-              <a
-                href="/login"
+              <Link
+                to="/login"
                 className="text-blue-600 hover:underline font-medium"
               >
                 Login here
-              </a>
+              </Link>
             </p>
           </form>
         </div>

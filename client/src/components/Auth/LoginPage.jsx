@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { FiMail, FiLock } from "react-icons/fi";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { usePopup } from "../../context/PopupContext.jsx";
 import useGoogleAuth from "../../hooks/auth/useGoogleAuth";
 import useLogin from "../../hooks/auth/useLogin";
@@ -139,12 +139,12 @@ export default function LoginPage() {
               />
 
               <div className="text-right mt-1">
-                <a
-                  href="/forgot-password"
+                <Link
+                  to="/forgot-password"
                   className="text-sm text-blue-600 hover:underline"
                 >
                   Forgot Password?
-                </a>
+                </Link>
               </div>
             </div>
 
@@ -182,12 +182,12 @@ export default function LoginPage() {
             {/* Signup Link */}
             <p className="text-center text-sm text-gray-600 mt-4">
               Don’t have an account?{" "}
-              <a
-                href="/signup"
+              <Link
+                to="/signup"
                 className="text-blue-600 hover:underline font-medium"
               >
                 Sign up here
-              </a>
+              </Link>
             </p>
           </form>
         </div>

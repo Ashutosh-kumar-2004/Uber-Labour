@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Briefcase,
   MapPin,
@@ -13,6 +14,12 @@ import {
 import Footer from "./Footer";
 
 export default function WorkifyLandingPage() {
+  const navigate = useNavigate();
+
+  const goToLogin = () => navigate("/login");
+  const goToSignup = () => navigate("/signup");
+  const goToHome = () => navigate("/");
+
   return (
     <div className="min-h-screen bg-white text-black overflow-hidden">
       {/* NAVBAR */}
@@ -27,33 +34,41 @@ export default function WorkifyLandingPage() {
           </div>
 
           <div className="hidden md:flex items-center gap-10 font-medium">
-            <a href="#" className="hover:text-blue-600 transition">
+            <button type="button" onClick={goToHome} className="hover:text-blue-600 transition">
               Home
-            </a>
+            </button>
 
-            <a href="#" className="hover:text-blue-600 transition">
+            <button type="button" onClick={goToLogin} className="hover:text-blue-600 transition">
               Find Work
-            </a>
+            </button>
 
-            <a href="#" className="hover:text-blue-600 transition">
+            <button type="button" onClick={goToLogin} className="hover:text-blue-600 transition">
               Post Task
-            </a>
+            </button>
 
-            <a href="#" className="hover:text-blue-600 transition">
+            <button type="button" onClick={goToLogin} className="hover:text-blue-600 transition">
               Categories
-            </a>
+            </button>
 
-            <a href="#" className="hover:text-blue-600 transition">
+            <button type="button" onClick={goToLogin} className="hover:text-blue-600 transition">
               Contact
-            </a>
+            </button>
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="border border-black px-5 py-2.5 rounded-xl font-semibold hover:bg-black hover:text-white transition">
+            <button
+              type="button"
+              onClick={goToLogin}
+              className="border border-black px-5 py-2.5 rounded-xl font-semibold hover:bg-black hover:text-white transition"
+            >
               Log In
             </button>
 
-            <button className="bg-black text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-blue-600 transition">
+            <button
+              type="button"
+              onClick={goToSignup}
+              className="bg-black text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-blue-600 transition"
+            >
               Sign Up
             </button>
           </div>
@@ -83,12 +98,20 @@ export default function WorkifyLandingPage() {
             </p>
 
             <div className="flex flex-wrap gap-4 mt-10">
-              <button className="bg-black hover:bg-blue-600 transition text-white px-7 py-4 rounded-2xl font-semibold flex items-center gap-3 shadow-lg">
+              <button
+                type="button"
+                onClick={goToLogin}
+                className="bg-black hover:bg-blue-600 transition text-white px-7 py-4 rounded-2xl font-semibold flex items-center gap-3 shadow-lg"
+              >
                 <Briefcase size={20} />
                 Post a Task
               </button>
 
-              <button className="border border-gray-300 hover:border-blue-600 hover:text-blue-600 transition px-7 py-4 rounded-2xl font-semibold flex items-center gap-3">
+              <button
+                type="button"
+                onClick={goToLogin}
+                className="border border-gray-300 hover:border-blue-600 hover:text-blue-600 transition px-7 py-4 rounded-2xl font-semibold flex items-center gap-3"
+              >
                 <Search size={20} />
                 Find Work
               </button>
@@ -117,7 +140,11 @@ export default function WorkifyLandingPage() {
                   </div>
                 </div>
 
-                <button className="bg-black hover:bg-blue-600 transition text-white rounded-2xl font-semibold flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={goToLogin}
+                  className="bg-black hover:bg-blue-600 transition text-white rounded-2xl font-semibold flex items-center justify-center gap-3"
+                >
                   Find Nearby Workers
                   <ArrowRight size={18} />
                 </button>
