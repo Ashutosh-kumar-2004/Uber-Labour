@@ -9,7 +9,7 @@ const ImageSection = () => {
         }}
       >
         <div className="bg-black/60 flex flex-col justify-center items-center text-white p-10">
-          <h1 className="text-5xl font-bold mb-4">Uber Labour</h1>
+          <h1 className="text-5xl font-bold mb-4">Workify</h1>
           <p className="text-xl text-center max-w-md">
             Find trusted workers or get hired for your skills — all in one
             place.

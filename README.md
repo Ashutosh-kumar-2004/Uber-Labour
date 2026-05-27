@@ -1,4 +1,4 @@
-# Uber-Labour (Workify)
+# Workify
 
 Workify is a full-stack on-demand labour marketplace built with the MERN stack. It connects users who need skilled help with verified workers, supports real-time task updates, live tracking, OTP-based arrival verification, and review/report handling.
 
@@ -187,7 +187,7 @@ All routes except auth routes require a valid JWT in the `Authorization: Bearer 
 ### Server (`server/.env`)
 ```env
 PORT=5000
-MONGO_URI=mongodb://localhost:27017/uber-labour
+MONGO_URI=mongodb://localhost:27017/workify
 JWT_SECRET=your_jwt_super_secret_key
 
 CLOUDINARY_CLOUD_NAME=your_cloud_name
@@ -217,8 +217,8 @@ VITE_CLOUDINARY_UPLOAD_PRESET=uber_tasks
 
 ### 1. Clone
 ```bash
-git clone https://github.com/Ashutosh-kumar-2004/uber-labour.git
-cd uber-labour
+git clone https://github.com/Ashutosh-kumar-2004/workify.git
+cd workify
 ```
 
 ### 2. Backend
