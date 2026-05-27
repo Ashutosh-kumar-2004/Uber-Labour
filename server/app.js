@@ -12,6 +12,7 @@ import workerRoutes from "./routes/workerRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import { initSocketServer } from "./services/socket.service.js";
+import healthExample from "./health-example.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -29,6 +30,9 @@ app.use(
   })
 );
 
+// simple health endpoint for warmup probes
+app.use("/", healthExample);
+
 app.get("/serverHealth", (req, res) => {
   res.send("API is running...");
 });
@@ -43,6 +47,7 @@ app.use("/api/user", userRoutes);
 app.use("/api/worker", workerRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
+
 
 /* ── Socket.IO ───────────────────────────────────── */
 const io = new SocketIOServer(server, {

@@ -6,13 +6,17 @@ import SignupPage from "../components/Auth/Signup";
 import LoginPage from "../components/Auth/LoginPage";
 import ForgotPassword from "../components/Auth/ForgotPassword";
 import PageLoader from "../components/constants/PageLoader";
+import WorkifyLandingPage from "../components/WorkifyLandingPage";
+import Workify404Page from "../components/Workify404Page";
 
 const User_Dashboard = lazy(() => import("../components/User/User_Dashboard"));
 const CreateTask = lazy(() => import("../components/User/CreateTask"));
 const UserProfile = lazy(() => import("../components/User/UserProfile"));
 const UserPayments = lazy(() => import("../components/User/UserPayments"));
 const Registration = lazy(() => import("../components/Labor/Registration"));
-const WorkerDashboard = lazy(() => import("../components/Labor/WorkerDashboard"));
+const WorkerDashboard = lazy(
+  () => import("../components/Labor/WorkerDashboard"),
+);
 const WorkerProfile = lazy(() => import("../components/Labor/WorkerProfile"));
 const WorkerHistory = lazy(() => import("../components/Labor/WorkerHistory"));
 const WorkerReviews = lazy(() => import("../components/Labor/WorkerReviews"));
@@ -23,16 +27,26 @@ const MyReviews = lazy(() => import("../components/User/MyReviews"));
 const AdminLayout = lazy(() => import("../components/Admin/AdminLayout"));
 const AdminDashboard = lazy(() => import("../components/Admin/AdminDashboard"));
 const AdminProfile = lazy(() => import("../components/Admin/AdminProfile"));
-const WorkerVerification = lazy(() => import("../components/Admin/WorkerVerification"));
+const WorkerVerification = lazy(
+  () => import("../components/Admin/WorkerVerification"),
+);
 const WorkersList = lazy(() => import("../components/Admin/WorkersList"));
 const UsersList = lazy(() => import("../components/Admin/UsersList"));
 const TasksMonitor = lazy(() => import("../components/Admin/TasksMonitor"));
-const CategoriesManager = lazy(() => import("../components/Admin/CategoriesManager"));
+const CategoriesManager = lazy(
+  () => import("../components/Admin/CategoriesManager"),
+);
 const ReviewsMonitor = lazy(() => import("../components/Admin/ReviewsMonitor"));
 const ReportsMonitor = lazy(() => import("../components/Admin/ReportsMonitor"));
-const PlatformFeeSettings = lazy(() => import("../components/Admin/PlatformFeeSettings"));
-const TaskRejectionsPanel = lazy(() => import("../components/Admin/TaskRejectionsPanel"));
-const WorkerLocationMap = lazy(() => import("../components/Admin/WorkerLocationMap"));
+const PlatformFeeSettings = lazy(
+  () => import("../components/Admin/PlatformFeeSettings"),
+);
+const TaskRejectionsPanel = lazy(
+  () => import("../components/Admin/TaskRejectionsPanel"),
+);
+const WorkerLocationMap = lazy(
+  () => import("../components/Admin/WorkerLocationMap"),
+);
 const TaskDensityMap = lazy(() => import("../components/Admin/TaskDensityMap"));
 
 /* Redirects unauthenticated users to /login, preserving the attempted path */
@@ -66,31 +80,112 @@ const AppRoutes = () => {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route path="*" element={<LoginPage />} />
+        <Route path="/" element={<WorkifyLandingPage />} />
 
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {/* user routes - require login */}
-        <Route path="/user"             element={<ProtectedRoute><User_Dashboard /></ProtectedRoute>} />
-        <Route path="/user/profile"     element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
-        <Route path="/user/hire"        element={<ProtectedRoute><CreateTask /></ProtectedRoute>} />
-        <Route path="/user/reviews"     element={<ProtectedRoute><MyReviews /></ProtectedRoute>} />
-        <Route path="/user/payments"    element={<ProtectedRoute><UserPayments /></ProtectedRoute>} />
+        <Route
+          path="/user"
+          element={
+            <ProtectedRoute>
+              <User_Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/user/profile"
+          element={
+            <ProtectedRoute>
+              <UserProfile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/user/hire"
+          element={
+            <ProtectedRoute>
+              <CreateTask />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/user/reviews"
+          element={
+            <ProtectedRoute>
+              <MyReviews />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/user/payments"
+          element={
+            <ProtectedRoute>
+              <UserPayments />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Labor routes - require login */}
-        <Route path="/worker"           element={<ProtectedRoute><Registration /></ProtectedRoute>} />
-        <Route path="/worker/dashboard" element={<ProtectedRoute><WorkerDashboard /></ProtectedRoute>} />
-        <Route path="/worker/profile"   element={<ProtectedRoute><WorkerProfile /></ProtectedRoute>} />
-        <Route path="/worker/history"   element={<ProtectedRoute><WorkerHistory /></ProtectedRoute>} />
-        <Route path="/worker/reviews"   element={<ProtectedRoute><WorkerReviews /></ProtectedRoute>} />
-        <Route path="/worker/payments" element={<ProtectedRoute><WorkerPayments /></ProtectedRoute>} />
+        <Route
+          path="/worker"
+          element={
+            <ProtectedRoute>
+              <Registration />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/worker/dashboard"
+          element={
+            <ProtectedRoute>
+              <WorkerDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/worker/profile"
+          element={
+            <ProtectedRoute>
+              <WorkerProfile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/worker/history"
+          element={
+            <ProtectedRoute>
+              <WorkerHistory />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/worker/reviews"
+          element={
+            <ProtectedRoute>
+              <WorkerReviews />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/worker/payments"
+          element={
+            <ProtectedRoute>
+              <WorkerPayments />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Admin routes */}
         <Route
           path="/admin"
-          element={<AdminRoute><AdminLayout /></AdminRoute>}
+          element={
+            <AdminRoute>
+              <AdminLayout />
+            </AdminRoute>
+          }
         >
           <Route index element={<AdminDashboard />} />
           <Route path="profile" element={<AdminProfile />} />
@@ -105,7 +200,11 @@ const AppRoutes = () => {
           <Route path="rejections" element={<TaskRejectionsPanel />} />
           <Route path="worker-map" element={<WorkerLocationMap />} />
           <Route path="task-density" element={<TaskDensityMap />} />
+          <Route path="*" element={<Workify404Page />} />
         </Route>
+        
+        {/* global 404 - catch all unmatched routes */}
+        <Route path="*" element={<Workify404Page />} />
       </Routes>
     </Suspense>
   );
